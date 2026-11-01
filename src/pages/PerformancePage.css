@@ -1,0 +1,73 @@
+.perf-shell {
+  min-height: 100dvh;
+  display: grid;
+  align-content: start;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #1e3a5f 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #0f766e33 0%, transparent 50%),
+    linear-gradient(160deg, #070b14 0%, #0b1220 45%, #101827 100%);
+  color: #e8eef7;
+}
+
+.perf-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.perf-mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(145deg, #14b8a6, #0e7490);
+  color: #041016;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.perf-brand h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.perf-brand p {
+  margin: 0.2rem 0 0;
+  color: #93a4bd;
+  font-size: 0.95rem;
+}
+
+.perf-card {
+  max-width: 36rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid #243247;
+  border-radius: 1rem;
+  background: #111827cc;
+  backdrop-filter: blur(8px);
+}
+
+.perf-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.perf-card p,
+.perf-card li {
+  color: #b7c5d8;
+  line-height: 1.5;
+}
+
+.perf-card ul {
+  margin: 0.85rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.perf-card code {
+  font-size: 0.85em;
+  color: #5eead4;
+}
