@@ -34,12 +34,16 @@ npm run dev
 
 ## Ordem de evolução
 
+Ver backlog vivo em [`docs/EVOLUCAO.md`](docs/EVOLUCAO.md).  
+Novas features entram numa **única PR de evolução** até o próximo publish no `main`.
+
 1. Base do app ✅
 2. Painel — senha mestra + criar/excluir/redefinir lojas ✅
-3. Auth do gestor em `/performance` ✅ (login; input IN/OUT na sequência)
-4. KPIs + config de check
-5. Input check-in/out
-6. Matriz + sistema + acuracidade
+3. Auth do gestor em `/performance` ✅
+4. Sidebar + abas + isolamento por sigla ✅
+5. KPIs + config de check ← próximo
+6. Input check-in/out
+7. Matriz + sistema + acuracidade
 
 ## Segurança
 
