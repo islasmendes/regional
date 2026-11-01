@@ -7,13 +7,11 @@ App **loja-cêntrico**: o painel cadastra lojas; o gestor faz check-in/out em `/
 - Painel admin: https://islasmendes.github.io/regional/painel
 - App do gestor: https://islasmendes.github.io/regional/performance
 
-### Publicar (uma vez)
+### Publicar
 
-1. Repo → **Settings → Pages**
-2. **Branch:** `gh-pages` / folder `/ (root)` → Save
-3. Aguarde 1–2 min e abra o painel
-
-A branch `gh-pages` já contém o build. Em `main`, o workflow `.github/workflows/deploy-pages.yml` republica automaticamente (após merge + Pages via GitHub Actions, se preferir).
+1. Repo precisa estar **Public** (no Free, Pages de repo privado dá 404 “Site not found”).
+2. **Settings → Pages** → Deploy from a branch → **`gh-pages`** / **`/ (root)`** → Save (só uma vez).
+3. A cada push em `main`, o workflow republica automaticamente a branch `gh-pages`.
 
 ## Stack
 
