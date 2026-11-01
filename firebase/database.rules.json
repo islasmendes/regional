@@ -33,7 +33,24 @@
         },
         "kpis": {
           "$kpiId": {
-            ".validate": "newData.hasChildren(['id', 'nome', 'cor', 'checkIn', 'checkOut', 'ordem', 'ativo', 'createdAt', 'updatedAt']) && newData.child('id').val() == $kpiId"
+            ".validate": "newData.hasChildren(['id', 'nome', 'cor', 'kind', 'checkIn', 'checkOut', 'ordem', 'ativo', 'createdAt', 'updatedAt']) && newData.child('id').val() == $kpiId && (newData.child('kind').val() == 'volume' || newData.child('kind').val() == 'conversao' || newData.child('kind').val() == 'alvo')",
+            "subs": {
+              "$subId": {
+                ".validate": "newData.hasChildren(['id', 'nome', 'kind', 'checkIn', 'checkOut', 'ordem', 'ativo', 'createdAt', 'updatedAt']) && newData.child('id').val() == $subId && (newData.child('kind').val() == 'volume' || newData.child('kind').val() == 'conversao' || newData.child('kind').val() == 'alvo')"
+              }
+            }
+          }
+        },
+        "metas": {
+          "$month": {
+            "$kpiId": {
+              ".validate": "newData.hasChildren(['valor', 'updatedAt', 'updatedBy']) || newData.hasChild('subs')",
+              "subs": {
+                "$subId": {
+                  ".validate": "newData.hasChildren(['valor', 'updatedAt', 'updatedBy'])"
+                }
+              }
+            }
           }
         },
         "config": {

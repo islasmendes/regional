@@ -8,13 +8,32 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
-function entryPath(sigla: string, monthKey: string, kpiId: string, dayKey: string, tipo: CheckEntryTipo) {
+function kpiEntryPath(
+  sigla: string,
+  monthKey: string,
+  kpiId: string,
+  dayKey: string,
+  tipo: CheckEntryTipo,
+) {
   return `${storeManagerChecksPath(sigla, monthKey)}/${kpiId}/${dayKey}/${tipo}`
 }
 
+function subEntryPath(
+  sigla: string,
+  monthKey: string,
+  kpiId: string,
+  subId: string,
+  dayKey: string,
+  tipo: CheckEntryTipo,
+) {
+  return `${storeManagerChecksPath(sigla, monthKey)}/${kpiId}/subs/${subId}/${dayKey}/${tipo}`
+}
+
+export type DayCheckSlot = Partial<Record<CheckEntryTipo, ManagerCheckEntry | null>>
+
 export type DayCheckMap = Record<
   string,
-  Partial<Record<CheckEntryTipo, ManagerCheckEntry | null>> | null
+  (DayCheckSlot & { subs?: Record<string, DayCheckSlot> }) | null
 >
 
 export function subscribeDayChecks(
@@ -29,10 +48,27 @@ export function subscribeDayChecks(
       callback({})
       return
     }
-    const tree = snap.val() as Record<string, Record<string, Partial<Record<CheckEntryTipo, ManagerCheckEntry>>>>
+    const tree = snap.val() as Record<
+      string,
+      Record<string, unknown> & {
+        subs?: Record<string, Record<string, DayCheckSlot>>
+      }
+    >
     const byKpi: DayCheckMap = {}
-    for (const [kpiId, days] of Object.entries(tree)) {
-      byKpi[kpiId] = days?.[dayKey] ?? null
+    for (const [kpiId, node] of Object.entries(tree)) {
+      const day = (node?.[dayKey] as DayCheckSlot | undefined) ?? null
+      const subsRaw = node?.subs
+      const subs: Record<string, DayCheckSlot> = {}
+      if (subsRaw && typeof subsRaw === 'object') {
+        for (const [subId, subDays] of Object.entries(subsRaw)) {
+          const subDay = subDays?.[dayKey]
+          if (subDay) subs[subId] = subDay
+        }
+      }
+      byKpi[kpiId] = {
+        ...(day ?? {}),
+        ...(Object.keys(subs).length > 0 ? { subs } : {}),
+      }
     }
     callback(byKpi)
   })
@@ -43,6 +79,7 @@ export async function saveManagerCheckEntry(params: {
   monthKey: string
   dayKey: string
   kpiId: string
+  subId?: string
   tipo: CheckEntryTipo
   valor: number
 }): Promise<ManagerCheckEntry> {
@@ -53,10 +90,10 @@ export async function saveManagerCheckEntry(params: {
     updatedAt: nowIso(),
     updatedBy: 'gestor',
   }
-  await set(
-    ref(database, entryPath(sigla, params.monthKey, params.kpiId, params.dayKey, params.tipo)),
-    entry,
-  )
+  const path = params.subId
+    ? subEntryPath(sigla, params.monthKey, params.kpiId, params.subId, params.dayKey, params.tipo)
+    : kpiEntryPath(sigla, params.monthKey, params.kpiId, params.dayKey, params.tipo)
+  await set(ref(database, path), entry)
   return entry
 }
 
@@ -65,12 +102,14 @@ export async function readManagerCheckEntry(params: {
   monthKey: string
   dayKey: string
   kpiId: string
+  subId?: string
   tipo: CheckEntryTipo
 }): Promise<ManagerCheckEntry | null> {
   const sigla = assertLojaSigla(params.sigla)
-  const snap = await get(
-    ref(database, entryPath(sigla, params.monthKey, params.kpiId, params.dayKey, params.tipo)),
-  )
+  const path = params.subId
+    ? subEntryPath(sigla, params.monthKey, params.kpiId, params.subId, params.dayKey, params.tipo)
+    : kpiEntryPath(sigla, params.monthKey, params.kpiId, params.dayKey, params.tipo)
+  const snap = await get(ref(database, path))
   if (!snap.exists()) return null
   return snap.val() as ManagerCheckEntry
 }

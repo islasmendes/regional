@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import { evaluateWindow, subscribeCheckSchedule } from '../firebase/checkSchedule'
-import { subscribeStoreKpis } from '../firebase/kpis'
+import { formulaLabel, subscribeStoreKpis } from '../firebase/kpis'
 import {
   saveManagerCheckEntry,
   subscribeDayChecks,
   type DayCheckMap,
 } from '../firebase/managerChecks'
-import type { CheckScheduleConfig, StoreKpi } from '../firebase/types'
+import type { CheckEntryTipo, CheckScheduleConfig, StoreKpi, StoreKpiSub } from '../firebase/types'
+import { INDICATOR_KIND_SHORT } from '../firebase/types'
 import { APP_TIMEZONE, getZonedNow } from '../lib/time'
 
 type Props = {
   sigla: string
+}
+
+type LaunchTarget = {
+  key: string
+  label: string
+  kpiId: string
+  subId?: string
+  tipo: CheckEntryTipo
+  cor: string
 }
 
 export function GestorDiaPanel({ sigla }: Props) {
@@ -43,20 +53,28 @@ export function GestorDiaPanel({ sigla }: Props) {
   const inStatus = schedule ? evaluateWindow(schedule, 'checkIn', nowTick) : null
   const outStatus = schedule ? evaluateWindow(schedule, 'checkOut', nowTick) : null
 
-  const draftKey = (kpiId: string, tipo: 'checkIn' | 'checkOut') => `${kpiId}:${tipo}`
+  const draftKey = (target: Pick<LaunchTarget, 'kpiId' | 'subId' | 'tipo'>) =>
+    `${target.kpiId}:${target.subId ?? '-'}:${target.tipo}`
 
-  const onSave = async (kpi: StoreKpi, tipo: 'checkIn' | 'checkOut') => {
-    const key = draftKey(kpi.id, tipo)
+  const currentValor = (kpiId: string, subId: string | undefined, tipo: CheckEntryTipo) => {
+    const node = dayChecks[kpiId]
+    if (!node) return null
+    if (subId) return node.subs?.[subId]?.[tipo]?.valor ?? null
+    return node[tipo]?.valor ?? null
+  }
+
+  const onSave = async (target: LaunchTarget) => {
+    const key = draftKey(target)
     const raw = drafts[key]
     const valor = Number(String(raw ?? '').replace(',', '.'))
     if (!Number.isFinite(valor)) {
       setMessage('Informe um número válido.')
       return
     }
-    const status = tipo === 'checkIn' ? inStatus : outStatus
+    const status = target.tipo === 'checkIn' ? inStatus : outStatus
     if (!status?.open) {
       setMessage(
-        tipo === 'checkIn'
+        target.tipo === 'checkIn'
           ? 'Check-in fechado neste horário/dia.'
           : 'Check-out fechado neste horário/dia.',
       )
@@ -69,16 +87,95 @@ export function GestorDiaPanel({ sigla }: Props) {
         sigla,
         monthKey: zoned.monthKey,
         dayKey: zoned.dayKey,
-        kpiId: kpi.id,
-        tipo,
+        kpiId: target.kpiId,
+        subId: target.subId,
+        tipo: target.tipo,
         valor,
       })
-      setMessage(`Salvo ${tipo === 'checkIn' ? 'IN' : 'OUT'} · ${kpi.nome}`)
+      setMessage(`Salvo ${target.tipo === 'checkIn' ? 'IN' : 'OUT'} · ${target.label}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao salvar lançamento.')
     } finally {
       setBusyKey(null)
     }
+  }
+
+  const renderLaunchRow = (target: LaunchTarget) => {
+    const status = target.tipo === 'checkIn' ? inStatus : outStatus
+    const key = draftKey(target)
+    const atual = currentValor(target.kpiId, target.subId, target.tipo)
+    return (
+      <div key={key} className="perf-kpi-row">
+        <div>
+          <span className="perf-kpi-tipo">{target.tipo === 'checkIn' ? 'Check-in' : 'Check-out'}</span>
+          <p className="perf-kpi-meta">Atual: {atual != null ? atual : '—'}</p>
+        </div>
+        <div className="perf-kpi-actions">
+          <input
+            type="text"
+            inputMode="decimal"
+            className="perf-num"
+            placeholder="Valor"
+            disabled={!status?.open || busyKey === key}
+            value={drafts[key] ?? ''}
+            onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
+          />
+          <button
+            type="button"
+            className="perf-btn perf-btn--primary"
+            disabled={!status?.open || busyKey === key}
+            onClick={() => void onSave(target)}
+          >
+            Salvar {target.tipo === 'checkIn' ? 'IN' : 'OUT'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const renderIndicatorBody = (
+    nome: string,
+    kind: StoreKpi['kind'],
+    checkIn: boolean,
+    checkOut: boolean,
+    formula: StoreKpi['formula'],
+    kpiId: string,
+    subId: string | undefined,
+    cor: string,
+  ) => {
+    const hasLaunch = checkIn || checkOut
+    return (
+      <>
+        <p className="perf-kpi-kind">
+          {INDICATOR_KIND_SHORT[kind]}
+          {kind === 'conversao' ? ` · ${formulaLabel(formula, kpis)}` : ''}
+        </p>
+        {!hasLaunch && kind === 'conversao' && (
+          <p className="perf-kpi-meta">Calculado automaticamente — sem lançamento IN/OUT.</p>
+        )}
+        {!hasLaunch && kind !== 'conversao' && (
+          <p className="perf-kpi-meta">IN/OUT desligados neste indicador.</p>
+        )}
+        {checkIn &&
+          renderLaunchRow({
+            key: `${kpiId}:${subId ?? '-'}:checkIn`,
+            label: nome,
+            kpiId,
+            subId,
+            tipo: 'checkIn',
+            cor,
+          })}
+        {checkOut &&
+          renderLaunchRow({
+            key: `${kpiId}:${subId ?? '-'}:checkOut`,
+            label: nome,
+            kpiId,
+            subId,
+            tipo: 'checkOut',
+            cor,
+          })}
+      </>
+    )
   }
 
   return (
@@ -111,80 +208,41 @@ export function GestorDiaPanel({ sigla }: Props) {
       ) : (
         <ul className="perf-kpi-list">
           {activeKpis.map((kpi) => {
-            const inEntry = dayChecks[kpi.id]?.checkIn
-            const outEntry = dayChecks[kpi.id]?.checkOut
+            const activeSubs = (kpi.subs ?? []).filter((s: StoreKpiSub) => s.ativo !== false)
             return (
               <li key={kpi.id} className="perf-kpi-card" style={{ ['--kpi' as string]: kpi.cor }}>
                 <header className="perf-kpi-head">
                   <span className="perf-kpi-dot" aria-hidden />
                   <h3>{kpi.nome}</h3>
                 </header>
-
-                {kpi.checkIn && (
-                  <div className="perf-kpi-row">
-                    <div>
-                      <span className="perf-kpi-tipo">Check-in</span>
-                      <p className="perf-kpi-meta">
-                        Atual: {inEntry?.valor != null ? inEntry.valor : '—'}
-                      </p>
-                    </div>
-                    <div className="perf-kpi-actions">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="perf-num"
-                        placeholder="Valor"
-                        disabled={!inStatus?.open || busyKey === draftKey(kpi.id, 'checkIn')}
-                        value={drafts[draftKey(kpi.id, 'checkIn')] ?? ''}
-                        onChange={(e) =>
-                          setDrafts((d) => ({ ...d, [draftKey(kpi.id, 'checkIn')]: e.target.value }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="perf-btn perf-btn--primary"
-                        disabled={!inStatus?.open || busyKey === draftKey(kpi.id, 'checkIn')}
-                        onClick={() => void onSave(kpi, 'checkIn')}
-                      >
-                        Salvar IN
-                      </button>
-                    </div>
-                  </div>
+                {renderIndicatorBody(
+                  kpi.nome,
+                  kpi.kind,
+                  kpi.checkIn,
+                  kpi.checkOut,
+                  kpi.formula,
+                  kpi.id,
+                  undefined,
+                  kpi.cor,
                 )}
-
-                {kpi.checkOut && (
-                  <div className="perf-kpi-row">
-                    <div>
-                      <span className="perf-kpi-tipo">Check-out</span>
-                      <p className="perf-kpi-meta">
-                        Atual: {outEntry?.valor != null ? outEntry.valor : '—'}
-                      </p>
-                    </div>
-                    <div className="perf-kpi-actions">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="perf-num"
-                        placeholder="Valor"
-                        disabled={!outStatus?.open || busyKey === draftKey(kpi.id, 'checkOut')}
-                        value={drafts[draftKey(kpi.id, 'checkOut')] ?? ''}
-                        onChange={(e) =>
-                          setDrafts((d) => ({
-                            ...d,
-                            [draftKey(kpi.id, 'checkOut')]: e.target.value,
-                          }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="perf-btn perf-btn--primary"
-                        disabled={!outStatus?.open || busyKey === draftKey(kpi.id, 'checkOut')}
-                        onClick={() => void onSave(kpi, 'checkOut')}
-                      >
-                        Salvar OUT
-                      </button>
-                    </div>
-                  </div>
+                {activeSubs.length > 0 && (
+                  <ul className="perf-sub-list">
+                    {activeSubs.map((sub) => (
+                      <li key={sub.id} className="perf-sub-card">
+                        <h4>{sub.nome}</h4>
+                        {renderIndicatorBody(
+                          `${kpi.nome} → ${sub.nome}`,
+                          sub.kind,
+                          sub.checkIn,
+                          sub.checkOut,
+                          sub.formula,
+                          kpi.id,
+                          sub.id,
+                          kpi.cor,
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </li>
             )
