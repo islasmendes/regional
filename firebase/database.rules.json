@@ -5,7 +5,7 @@
 
     "master": {
       "config": {
-        ".read": "auth != null",
+        ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
         ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
       }
     },
@@ -13,9 +13,13 @@
     "stores": {
       ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
       "$sigla": {
+        ".read": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))",
         ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
         "meta": {
           ".validate": "newData.hasChildren(['code', 'passwordHash', 'active', 'createdAt', 'updatedAt']) && newData.child('code').val() == $sigla"
+        },
+        "managerChecks": {
+          ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))"
         }
       }
     }

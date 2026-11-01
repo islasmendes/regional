@@ -10,4 +10,6 @@ export type StoreMeta = {
   active: boolean
   createdAt: string
   updatedAt: string
+  /** Conta Firebase Auth sintética do gestor da loja. */
+  authEmail?: string
 }

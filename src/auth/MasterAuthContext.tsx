@@ -14,6 +14,7 @@ import {
   logoutMaster,
   subscribeAuth,
 } from '../firebase/masterAuth'
+import { masterEmail } from '../firebase/paths'
 
 type MasterAuthState = {
   ready: boolean
@@ -57,7 +58,7 @@ export function MasterAuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ready,
       user,
-      isAuthenticated: !!user,
+      isAuthenticated: !!user && user.email === masterEmail(),
       login,
       logout,
       lastError,
