@@ -38,6 +38,35 @@ export function storeKpisPath(sigla: string): string {
   return `${storeRootPath(sigla)}/kpis`
 }
 
+export function storeKpiPath(sigla: string, kpiId: string): string {
+  return `${storeKpisPath(sigla)}/${kpiId}`
+}
+
+export function storeKpiSubsPath(sigla: string, kpiId: string): string {
+  return `${storeKpiPath(sigla, kpiId)}/subs`
+}
+
+export function storeKpiSubPath(sigla: string, kpiId: string, subId: string): string {
+  return `${storeKpiSubsPath(sigla, kpiId)}/${subId}`
+}
+
+export function storeMetasMonthPath(sigla: string, monthKey: string): string {
+  return `${storeRootPath(sigla)}/metas/${monthKey}`
+}
+
+export function storeKpiMetaPath(sigla: string, monthKey: string, kpiId: string): string {
+  return `${storeMetasMonthPath(sigla, monthKey)}/${kpiId}`
+}
+
+export function storeSubMetaPath(
+  sigla: string,
+  monthKey: string,
+  kpiId: string,
+  subId: string,
+): string {
+  return `${storeKpiMetaPath(sigla, monthKey, kpiId)}/subs/${subId}`
+}
+
 export function storeConfigPath(sigla: string, leaf = ''): string {
   const base = `${storeRootPath(sigla)}/config`
   return leaf ? `${base}/${leaf}` : base

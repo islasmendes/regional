@@ -4,9 +4,12 @@ import { subscribeStores } from '../firebase/stores'
 import type { PainelTabsConfig, StoreMeta } from '../firebase/types'
 import { defaultTabsConfig, subscribeTabsConfig } from '../firebase/uiTabs'
 import { AbasTab } from '../painel/tabs/AbasTab'
+import { HorariosTab } from '../painel/tabs/HorariosTab'
 import { InicioTab } from '../painel/tabs/InicioTab'
+import { KpisTab } from '../painel/tabs/KpisTab'
 import { LojasTab } from '../painel/tabs/LojasTab'
 import {
+  isPainelTabId,
   PAINEL_TAB_REGISTRY,
   type PainelTabId,
 } from '../painel/tabs/registry'
@@ -16,8 +19,7 @@ const TAB_STORAGE_KEY = 'regional-painel-active-tab'
 
 function readStoredTab(): PainelTabId {
   const raw = localStorage.getItem(TAB_STORAGE_KEY)
-  if (raw === 'inicio' || raw === 'lojas' || raw === 'abas') return raw
-  return 'inicio'
+  return raw && isPainelTabId(raw) ? raw : 'inicio'
 }
 
 export function PainelPage() {
@@ -193,6 +195,8 @@ export function PainelPage() {
         <div className="painel-main-body">
           {activeTab === 'inicio' && <InicioTab stores={stores} onOpenTab={setActiveTab} />}
           {activeTab === 'lojas' && <LojasTab stores={stores} />}
+          {activeTab === 'kpis' && <KpisTab stores={stores} />}
+          {activeTab === 'horarios' && <HorariosTab stores={stores} />}
           {activeTab === 'abas' && (
             <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
           )}

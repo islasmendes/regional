@@ -155,3 +155,163 @@
 .perf-muted a {
   color: #5eead4;
 }
+
+.perf-day {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.perf-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: none;
+}
+
+.perf-eyebrow {
+  margin: 0;
+  color: #5eead4;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.perf-window-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.perf-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid #334155;
+}
+
+.perf-badge.is-open {
+  border-color: #14b8a6;
+  background: #134e4a66;
+  color: #99f6e4;
+}
+
+.perf-badge.is-closed {
+  border-color: #7f1d1d;
+  background: #7f1d1d33;
+  color: #fecdd3;
+}
+
+.perf-toast {
+  margin: 0;
+  color: #5eead4;
+  font-size: 0.9rem;
+}
+
+.perf-kpi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.perf-kpi-card {
+  border: 1px solid #243247;
+  border-radius: 1rem;
+  background: #111827cc;
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.perf-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.perf-kpi-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.perf-kpi-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: var(--kpi, #14b8a6);
+}
+
+.perf-kpi-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: end;
+  padding-top: 0.55rem;
+  border-top: 1px solid #1f2937;
+}
+
+.perf-kpi-tipo {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.perf-kpi-meta {
+  margin: 0.15rem 0 0;
+  color: #93a4bd;
+  font-size: 0.82rem;
+}
+
+.perf-kpi-kind {
+  margin: 0;
+  color: #7dd3fc;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.perf-kpi-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.perf-sub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0 0;
+  display: grid;
+  gap: 0.55rem;
+  border-top: 1px dashed #243247;
+}
+
+.perf-sub-card {
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #1f2937;
+  background: #0b1220aa;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.perf-sub-card h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.perf-num {
+  width: 7.5rem;
+  border: 1px solid #334155;
+  border-radius: 0.65rem;
+  background: #0b1220;
+  color: #e8eef7;
+  padding: 0.65rem 0.7rem;
+}
