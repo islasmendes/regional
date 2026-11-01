@@ -1,0 +1,23 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "master": {
+      "config": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
+      }
+    },
+
+    "stores": {
+      ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
+      "$sigla": {
+        ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
+        "meta": {
+          ".validate": "newData.hasChildren(['code', 'passwordHash', 'active', 'createdAt', 'updatedAt']) && newData.child('code').val() == $sigla"
+        }
+      }
+    }
+  }
+}

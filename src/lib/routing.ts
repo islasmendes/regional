@@ -6,7 +6,7 @@ export function restoreRedirectFromSession(): void {
   if (!raw) return
   sessionStorage.removeItem('regional-redirect')
   const path = raw.replace(/^\//, '').replace(/\/$/, '')
-  const target = !path || path === 'index.html' ? 'performance' : path
+  const target = !path || path === 'index.html' ? 'painel' : path
   window.history.replaceState(null, '', `${BASE}${target}`)
 }
 
