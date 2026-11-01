@@ -1,8 +1,14 @@
-import { get, onValue, ref, remove, set, type Unsubscribe } from 'firebase/database'
+import { get, onValue, ref, remove, set, update, type Unsubscribe } from 'firebase/database'
 import { hashPassword, isStrongEnoughPassword } from '../lib/crypto'
 import { assertLojaSigla } from '../lib/sigla'
 import { database } from './config'
-import { lojaEmail, storeMetaPath, storeRootPath, storesIndexPath } from './paths'
+import {
+  lojaEmail,
+  siglaIndexPath,
+  storeMetaPath,
+  storeRootPath,
+  storesIndexPath,
+} from './paths'
 import { provisionStoreAuth } from './storeAuth'
 import type { StoreMeta } from './types'
 
@@ -59,8 +65,13 @@ export async function createStore(siglaInput: string, password: string): Promise
   const strength = isStrongEnoughPassword(password)
   if (strength) throw new Error(strength)
 
-  const existing = await get(ref(database, storeMetaPath(code)))
-  if (existing.exists()) throw new Error(`A loja ${code} já está cadastrada.`)
+  const [existingMeta, existingIndex] = await Promise.all([
+    get(ref(database, storeMetaPath(code))),
+    get(ref(database, siglaIndexPath(code))),
+  ])
+  if (existingMeta.exists() || existingIndex.exists()) {
+    throw new Error(`A sigla ${code} já está em uso. Cada loja precisa de sigla única.`)
+  }
 
   const authEmail = await provisionStoreAuth(code, password)
 
@@ -72,7 +83,14 @@ export async function createStore(siglaInput: string, password: string): Promise
     updatedAt: nowIso(),
     authEmail,
   }
-  await set(ref(database, storeMetaPath(code)), meta)
+
+  await update(ref(database), {
+    [storeMetaPath(code)]: meta,
+    [siglaIndexPath(code)]: {
+      code,
+      createdAt: meta.createdAt,
+    },
+  })
   return meta
 }
 
@@ -100,6 +118,14 @@ export async function updateStorePassword(siglaInput: string, password: string):
 
 export async function deleteStore(siglaInput: string): Promise<void> {
   const code = assertLojaSigla(siglaInput)
-  await remove(ref(database, storeRootPath(code)))
+  await update(ref(database), {
+    [storeRootPath(code)]: null,
+    [siglaIndexPath(code)]: null,
+  })
   // Conta Auth da loja pode ficar órfã sem a senha atual — remover no Console se precisar.
+}
+
+/** Remove só se não houver uso — helper para limpeza. */
+export async function removeStoreNode(siglaInput: string): Promise<void> {
+  await remove(ref(database, storeRootPath(assertLojaSigla(siglaInput))))
 }

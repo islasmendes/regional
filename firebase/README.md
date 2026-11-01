@@ -23,6 +23,21 @@ Ou cole `database.rules.json` em Realtime Database → Rules → Publish.
 
 Criar/redefinir loja no **painel** também provisiona a conta Auth da loja (app Firebase secundário).
 
+## Isolamento por sigla
+
+```
+master/config
+master/ui/tabs          ← ordem/classificação das abas do painel
+indexes/siglas/{SIGLA}  ← unicidade
+stores/{SIGLA}/meta
+stores/{SIGLA}/kpis
+stores/{SIGLA}/config/...
+stores/{SIGLA}/managerChecks/{yyyy-MM}/entries
+stores/{SIGLA}/results/{yyyy-MM}/...
+```
+
 ## Importante
 
 URL “privada” no GitHub Pages **não** é controle de acesso. Quem importa são Auth + regras do RTDB. Anônimo autenticado sem e-mail de master/loja continua bloqueado.
+
+Após mudar `database.rules.json`, **publique de novo** as regras no Console.

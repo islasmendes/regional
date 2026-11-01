@@ -7,6 +7,19 @@
       "config": {
         ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
         ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
+      },
+      "ui": {
+        ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
+        ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
+      }
+    },
+
+    "indexes": {
+      "siglas": {
+        ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
+        "$sigla": {
+          ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
+        }
       }
     },
 
@@ -19,7 +32,16 @@
           ".validate": "newData.hasChildren(['code', 'passwordHash', 'active', 'createdAt', 'updatedAt']) && newData.child('code').val() == $sigla"
         },
         "managerChecks": {
-          ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))"
+          "$month": {
+            "entries": {
+              ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))"
+            }
+          }
+        },
+        "results": {
+          "$month": {
+            ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))"
+          }
         }
       }
     }

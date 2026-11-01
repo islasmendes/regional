@@ -1,14 +1,24 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useMasterAuth } from '../auth/MasterAuthContext'
+import { subscribeStores } from '../firebase/stores'
+import type { PainelTabsConfig, StoreMeta } from '../firebase/types'
+import { defaultTabsConfig, subscribeTabsConfig } from '../firebase/uiTabs'
+import { AbasTab } from '../painel/tabs/AbasTab'
+import { InicioTab } from '../painel/tabs/InicioTab'
+import { LojasTab } from '../painel/tabs/LojasTab'
 import {
-  createStore,
-  deleteStore,
-  subscribeStores,
-  updateStorePassword,
-} from '../firebase/stores'
-import type { StoreMeta } from '../firebase/types'
-import { normalizeSigla } from '../lib/sigla'
+  PAINEL_TAB_REGISTRY,
+  type PainelTabId,
+} from '../painel/tabs/registry'
 import './PainelPage.css'
+
+const TAB_STORAGE_KEY = 'regional-painel-active-tab'
+
+function readStoredTab(): PainelTabId {
+  const raw = localStorage.getItem(TAB_STORAGE_KEY)
+  if (raw === 'inicio' || raw === 'lojas' || raw === 'abas') return raw
+  return 'inicio'
+}
 
 export function PainelPage() {
   const { ready, isAuthenticated, login, logout, lastError, clearError } = useMasterAuth()
@@ -17,25 +27,43 @@ export function PainelPage() {
   const [authMessage, setAuthMessage] = useState<string | null>(null)
 
   const [stores, setStores] = useState<StoreMeta[]>([])
-  const [storesError, setStoresError] = useState<string | null>(null)
-
-  const [sigla, setSigla] = useState('')
-  const [storePassword, setStorePassword] = useState('')
-  const [busyStore, setBusyStore] = useState(false)
-  const [storeMessage, setStoreMessage] = useState<string | null>(null)
-
-  const [resetSigla, setResetSigla] = useState<string | null>(null)
-  const [resetPassword, setResetPassword] = useState('')
+  const [tabsConfig, setTabsConfig] = useState<PainelTabsConfig>(() => defaultTabsConfig())
+  const [activeTab, setActiveTab] = useState<PainelTabId>(() => readStoredTab())
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     if (!isAuthenticated) {
       setStores([])
       return
     }
-    setStoresError(null)
-    const unsubscribe = subscribeStores(setStores)
-    return unsubscribe
+    const unsubStores = subscribeStores(setStores)
+    const unsubTabs = subscribeTabsConfig(setTabsConfig)
+    return () => {
+      unsubStores()
+      unsubTabs()
+    }
   }, [isAuthenticated])
+
+  useEffect(() => {
+    localStorage.setItem(TAB_STORAGE_KEY, activeTab)
+  }, [activeTab])
+
+  const visibleTabs = useMemo(() => {
+    const byId = Object.fromEntries(PAINEL_TAB_REGISTRY.map((t) => [t.id, t]))
+    return tabsConfig.order
+      .map((id) => byId[id])
+      .filter((tab): tab is (typeof PAINEL_TAB_REGISTRY)[number] => {
+        if (!tab) return false
+        const enabled = tabsConfig.enabled[tab.id] ?? tab.defaultEnabled
+        return enabled
+      })
+  }, [tabsConfig])
+
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === activeTab) && visibleTabs[0]) {
+      setActiveTab(visibleTabs[0].id)
+    }
+  }, [visibleTabs, activeTab])
 
   const onLogin = async (event: FormEvent) => {
     event.preventDefault()
@@ -49,60 +77,6 @@ export function PainelPage() {
       setAuthMessage(error instanceof Error ? error.message : 'Falha no login.')
     } finally {
       setBusyAuth(false)
-    }
-  }
-
-  const onCreateStore = async (event: FormEvent) => {
-    event.preventDefault()
-    setStoreMessage(null)
-    setBusyStore(true)
-    try {
-      const created = await createStore(sigla, storePassword)
-      setStoreMessage(`Loja ${created.code} criada.`)
-      setSigla('')
-      setStorePassword('')
-    } catch (error) {
-      setStoreMessage(error instanceof Error ? error.message : 'Falha ao criar loja.')
-    } finally {
-      setBusyStore(false)
-    }
-  }
-
-  const onDeleteStore = async (code: string) => {
-    const confirmed = window.confirm(
-      `Excluir a loja ${code}? Isso remove os dados dela no RTDB.`,
-    )
-    if (!confirmed) return
-    setStoreMessage(null)
-    setBusyStore(true)
-    try {
-      await deleteStore(code)
-      setStoreMessage(`Loja ${code} excluída.`)
-      if (resetSigla === code) {
-        setResetSigla(null)
-        setResetPassword('')
-      }
-    } catch (error) {
-      setStoreMessage(error instanceof Error ? error.message : 'Falha ao excluir loja.')
-    } finally {
-      setBusyStore(false)
-    }
-  }
-
-  const onResetPassword = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!resetSigla) return
-    setStoreMessage(null)
-    setBusyStore(true)
-    try {
-      await updateStorePassword(resetSigla, resetPassword)
-      setStoreMessage(`Senha da loja ${resetSigla} atualizada.`)
-      setResetSigla(null)
-      setResetPassword('')
-    } catch (error) {
-      setStoreMessage(error instanceof Error ? error.message : 'Falha ao atualizar senha.')
-    } finally {
-      setBusyStore(false)
     }
   }
 
@@ -124,10 +98,10 @@ export function PainelPage() {
             </span>
             <div>
               <h1>Painel Regional</h1>
-              <p>Admin — cadastro de lojas e acesso mestre</p>
+              <p>Admin — lojas isoladas por sigla</p>
             </div>
           </header>
-          <form className="painel-form" onSubmit={onLogin}>
+          <form className="painel-form" onSubmit={(e) => void onLogin(e)}>
             <label>
               Senha mestra
               <input
@@ -141,8 +115,7 @@ export function PainelPage() {
               />
             </label>
             <p className="painel-hint">
-              No primeiro acesso, esta senha cria a conta mestra na nuvem. Depois, use a mesma
-              para entrar.
+              No primeiro acesso, esta senha cria a conta mestra na nuvem.
             </p>
             {(authMessage || lastError) && (
               <p className="painel-error" role="alert">
@@ -158,137 +131,73 @@ export function PainelPage() {
     )
   }
 
+  const activeDef = PAINEL_TAB_REGISTRY.find((t) => t.id === activeTab)
+
   return (
-    <main className="painel-shell">
-      <header className="painel-top">
-        <div className="painel-brand">
+    <div className={`painel-app ${sidebarOpen ? '' : 'painel-app--sidebar-collapsed'}`}>
+      <aside className="painel-sidebar" aria-label="Navegação do painel">
+        <div className="painel-sidebar-brand">
           <span className="painel-mark" aria-hidden>
             RA
           </span>
-          <div>
-            <h1>Painel Regional</h1>
-            <p>Lojas · base para o app do gestor</p>
-          </div>
-        </div>
-        <button type="button" className="painel-btn painel-btn--ghost" onClick={() => void logout()}>
-          Sair
-        </button>
-      </header>
-
-      <section className="painel-panel">
-        <h2>Nova loja</h2>
-        <form className="painel-form painel-form--row" onSubmit={onCreateStore}>
-          <label>
-            Sigla
-            <input
-              value={sigla}
-              onChange={(e) => setSigla(normalizeSigla(e.target.value))}
-              placeholder="Ex.: VCANT"
-              autoComplete="off"
-              required
-            />
-          </label>
-          <label>
-            Senha do gestor
-            <input
-              type="password"
-              value={storePassword}
-              onChange={(e) => setStorePassword(e.target.value)}
-              placeholder="Mín. 6 caracteres"
-              autoComplete="new-password"
-              minLength={6}
-              required
-            />
-          </label>
-          <button type="submit" className="painel-btn painel-btn--primary" disabled={busyStore}>
-            {busyStore ? 'Salvando…' : 'Criar loja'}
-          </button>
-        </form>
-        <p className="painel-hint">
-          Padrão de sigla: <strong>VC…</strong>. A senha será usada depois em{' '}
-          <code>/performance</code>.
-        </p>
-      </section>
-
-      <section className="painel-panel">
-        <div className="painel-panel-head">
-          <h2>Lojas cadastradas</h2>
-          <span className="painel-count">{stores.length}</span>
-        </div>
-        {storesError && <p className="painel-error">{storesError}</p>}
-        {storeMessage && <p className="painel-toast">{storeMessage}</p>}
-        {stores.length === 0 ? (
-          <p className="painel-muted">Nenhuma loja ainda. Crie a primeira acima.</p>
-        ) : (
-          <ul className="painel-store-list">
-            {stores.map((store) => (
-              <li key={store.code} className="painel-store-item">
-                <div>
-                  <strong>{store.code}</strong>
-                  <span className="painel-muted">
-                    {store.active ? 'ativa' : 'inativa'} · criada{' '}
-                    {new Date(store.createdAt).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="painel-store-actions">
-                  <button
-                    type="button"
-                    className="painel-btn painel-btn--ghost"
-                    disabled={busyStore}
-                    onClick={() => {
-                      setResetSigla(store.code)
-                      setResetPassword('')
-                    }}
-                  >
-                    Redefinir senha
-                  </button>
-                  <button
-                    type="button"
-                    className="painel-btn painel-btn--danger"
-                    disabled={busyStore}
-                    onClick={() => void onDeleteStore(store.code)}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {resetSigla && (
-          <form className="painel-form painel-reset" onSubmit={onResetPassword}>
-            <h3>Nova senha — {resetSigla}</h3>
-            <label>
-              Senha
-              <input
-                type="password"
-                value={resetPassword}
-                onChange={(e) => setResetPassword(e.target.value)}
-                placeholder="Mín. 6 caracteres"
-                minLength={6}
-                required
-                autoFocus
-              />
-            </label>
-            <div className="painel-store-actions">
-              <button type="submit" className="painel-btn painel-btn--primary" disabled={busyStore}>
-                Salvar senha
-              </button>
-              <button
-                type="button"
-                className="painel-btn painel-btn--ghost"
-                onClick={() => {
-                  setResetSigla(null)
-                  setResetPassword('')
-                }}
-              >
-                Cancelar
-              </button>
+          {sidebarOpen && (
+            <div>
+              <strong>Regional</strong>
+              <span>Painel</span>
             </div>
-          </form>
-        )}
-      </section>
-    </main>
+          )}
+        </div>
+
+        <nav className="painel-sidebar-nav">
+          {visibleTabs.map((tab) => {
+            const group = tabsConfig.groups[tab.id] ?? tab.group
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`painel-nav-item ${activeTab === tab.id ? 'is-active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+                title={`${tab.label} · ${group}`}
+              >
+                <span className="painel-nav-dot" aria-hidden />
+                {sidebarOpen && <span>{tab.label}</span>}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="painel-sidebar-foot">
+          <button
+            type="button"
+            className="painel-btn painel-btn--ghost painel-sidebar-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
+            {sidebarOpen ? '◂' : '▸'}
+          </button>
+          {sidebarOpen && (
+            <button type="button" className="painel-btn painel-btn--ghost" onClick={() => void logout()}>
+              Sair
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <div className="painel-main">
+        <header className="painel-top">
+          <div>
+            <p className="painel-eyebrow">{tabsConfig.groups[activeTab] ?? activeDef?.group}</p>
+            <h1>{activeDef?.label ?? 'Painel'}</h1>
+          </div>
+        </header>
+
+        <div className="painel-main-body">
+          {activeTab === 'inicio' && <InicioTab stores={stores} onOpenTab={setActiveTab} />}
+          {activeTab === 'lojas' && <LojasTab stores={stores} />}
+          {activeTab === 'abas' && (
+            <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
