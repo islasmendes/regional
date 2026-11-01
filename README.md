@@ -41,8 +41,8 @@ Novas features entram numa **única PR de evolução** até o próximo publish n
 2. Painel — senha mestra + criar/excluir/redefinir lojas ✅
 3. Auth do gestor em `/performance` ✅
 4. Sidebar + abas + isolamento por sigla ✅
-5. KPIs + config de check ← próximo
-6. Input check-in/out
+5. KPIs por loja ← nesta PR
+6. Config de check + input check-in/out
 7. Matriz + sistema + acuracidade
 
 ## Segurança

@@ -38,6 +38,10 @@ export function storeKpisPath(sigla: string): string {
   return `${storeRootPath(sigla)}/kpis`
 }
 
+export function storeKpiPath(sigla: string, kpiId: string): string {
+  return `${storeKpisPath(sigla)}/${kpiId}`
+}
+
 export function storeConfigPath(sigla: string, leaf = ''): string {
   const base = `${storeRootPath(sigla)}/config`
   return leaf ? `${base}/${leaf}` : base

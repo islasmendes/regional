@@ -16,6 +16,21 @@ export type StoreMeta = {
   authEmail?: string
 }
 
+/** Indicador isolado por loja: stores/{SIGLA}/kpis/{id} */
+export type StoreKpi = {
+  id: string
+  nome: string
+  cor: string
+  /** Gestor lança planejado (IN). */
+  checkIn: boolean
+  /** Gestor lança realizado (OUT). */
+  checkOut: boolean
+  ordem: number
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 /** Persistência da organização das abas na raiz. */
 export type PainelTabsConfig = {
   order: PainelTabId[]

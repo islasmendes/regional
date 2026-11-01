@@ -1,4 +1,4 @@
-export type PainelTabId = 'inicio' | 'lojas' | 'abas'
+export type PainelTabId = 'inicio' | 'lojas' | 'kpis' | 'abas'
 
 export type PainelTabDef = {
   id: PainelTabId
@@ -27,6 +27,13 @@ export const PAINEL_TAB_REGISTRY: readonly PainelTabDef[] = [
     label: 'Lojas',
     group: 'cadastros',
     description: 'Criar, excluir e senhas — isolamento por sigla VC…',
+    defaultEnabled: true,
+  },
+  {
+    id: 'kpis',
+    label: 'KPIs',
+    group: 'cadastros',
+    description: 'Indicadores por loja (check-in / check-out).',
     defaultEnabled: true,
   },
   {

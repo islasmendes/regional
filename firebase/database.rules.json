@@ -31,6 +31,11 @@
         "meta": {
           ".validate": "newData.hasChildren(['code', 'passwordHash', 'active', 'createdAt', 'updatedAt']) && newData.child('code').val() == $sigla"
         },
+        "kpis": {
+          "$kpiId": {
+            ".validate": "newData.hasChildren(['id', 'nome', 'cor', 'checkIn', 'checkOut', 'ordem', 'ativo', 'createdAt', 'updatedAt']) && newData.child('id').val() == $kpiId"
+          }
+        },
         "managerChecks": {
           "$month": {
             "entries": {

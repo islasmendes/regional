@@ -9,10 +9,10 @@ Tudo que for feature daqui pra frente entra **nesta branch/PR**, até decidirmos
 3. Login gestor `/performance` ✅
 4. Sidebar + abas reordenáveis + isolamento por sigla ✅
 
-## Próximo (acumular nesta PR)
+## Nesta PR (#4)
 
-1. Cadastro de KPIs por loja (`stores/{SIGLA}/kpis`)
-2. Config de check-in / check-out por indicador
+1. Cadastro de KPIs por loja (`stores/{SIGLA}/kpis`) ← em andamento
+2. Config de check-in / check-out por indicador (detalhes)
 3. Input do gestor em `/performance` (IN/OUT do dia)
 4. Matriz no painel + resultado do sistema
 5. Blocos de acuracidade / aderência
