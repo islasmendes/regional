@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useGestorAuth } from '../auth/GestorAuthContext'
+import { GestorDiaPanel } from '../performance/GestorDiaPanel'
 import './PerformancePage.css'
 
 export function PerformancePage() {
@@ -97,7 +98,7 @@ export function PerformancePage() {
           </span>
           <div>
             <h1>Loja {session.sigla}</h1>
-            <p>Área do gestor — próximo: lançar check-in / check-out</p>
+            <p>Lançamento do dia · check-in / check-out</p>
           </div>
         </div>
         <button type="button" className="perf-btn perf-btn--ghost" onClick={() => void logout()}>
@@ -105,13 +106,7 @@ export function PerformancePage() {
         </button>
       </header>
 
-      <section className="perf-card">
-        <h2>Login ok</h2>
-        <p>
-          Sessão autenticada para <strong>{session.sigla}</strong>. Na próxima etapa ligamos os
-          indicadores e o lançamento diário (IN/OUT).
-        </p>
-      </section>
+      <GestorDiaPanel sigla={session.sigla} />
     </main>
   )
 }

@@ -31,6 +31,33 @@ export type StoreKpi = {
   updatedAt: string
 }
 
+export type TimeWindow = {
+  start: string
+  end: string
+}
+
+/**
+ * Janelas de check + dias ativos da loja.
+ * Path: stores/{SIGLA}/config/checkSchedule
+ */
+export type CheckScheduleConfig = {
+  checkIn: TimeWindow
+  checkOut: TimeWindow
+  /** Chaves "0".."6" (Dom..Sáb). true = dia ativo. */
+  weekdays: Record<string, boolean>
+  timezone: string
+  updatedAt: string
+}
+
+export type CheckEntryTipo = 'checkIn' | 'checkOut'
+
+export type ManagerCheckEntry = {
+  valor: number
+  updatedAt: string
+  updatedBy: 'gestor' | 'painel'
+  texto?: string
+}
+
 /** Persistência da organização das abas na raiz. */
 export type PainelTabsConfig = {
   order: PainelTabId[]

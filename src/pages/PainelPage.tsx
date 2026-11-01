@@ -4,6 +4,7 @@ import { subscribeStores } from '../firebase/stores'
 import type { PainelTabsConfig, StoreMeta } from '../firebase/types'
 import { defaultTabsConfig, subscribeTabsConfig } from '../firebase/uiTabs'
 import { AbasTab } from '../painel/tabs/AbasTab'
+import { HorariosTab } from '../painel/tabs/HorariosTab'
 import { InicioTab } from '../painel/tabs/InicioTab'
 import { KpisTab } from '../painel/tabs/KpisTab'
 import { LojasTab } from '../painel/tabs/LojasTab'
@@ -195,6 +196,7 @@ export function PainelPage() {
           {activeTab === 'inicio' && <InicioTab stores={stores} onOpenTab={setActiveTab} />}
           {activeTab === 'lojas' && <LojasTab stores={stores} />}
           {activeTab === 'kpis' && <KpisTab stores={stores} />}
+          {activeTab === 'horarios' && <HorariosTab stores={stores} />}
           {activeTab === 'abas' && (
             <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
           )}

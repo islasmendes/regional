@@ -298,6 +298,112 @@
   box-shadow: 0 0 0 2px #1f2937;
 }
 
+.horario-day-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.horario-day-card {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: center;
+  padding: 0.75rem 0.4rem;
+  border-radius: 0.85rem;
+  border: 1px solid #334155;
+  background: #0b1220;
+  color: #93a4bd;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.horario-day-card:hover {
+  transform: translateY(-1px);
+}
+
+.horario-day-card.is-on {
+  border-color: #14b8a6;
+  background: linear-gradient(160deg, #134e4a88, #0b1220);
+  color: #ecfeff;
+}
+
+.horario-day-card.is-off {
+  opacity: 0.72;
+}
+
+.horario-day-short {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.horario-day-full {
+  font-size: 0.72rem;
+}
+
+.horario-day-state {
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5eead4;
+}
+
+.horario-day-card.is-off .horario-day-state {
+  color: #64748b;
+}
+
+.horario-window-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.horario-window-card {
+  margin-bottom: 0;
+}
+
+.horario-window-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.horario-window-head h3 {
+  margin: 0;
+}
+
+.horario-window-head p {
+  margin: 0.1rem 0 0;
+  color: #93a4bd;
+  font-size: 0.85rem;
+}
+
+.horario-pill {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.45rem;
+  border-radius: 0.7rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.horario-pill--in {
+  background: #0e7490;
+  color: #ecfeff;
+}
+
+.horario-pill--out {
+  background: #7c3aed;
+  color: #f5f3ff;
+}
+
 .painel-hint,
 .painel-muted {
   margin: 0.65rem 0 0;

@@ -36,6 +36,11 @@
             ".validate": "newData.hasChildren(['id', 'nome', 'cor', 'checkIn', 'checkOut', 'ordem', 'ativo', 'createdAt', 'updatedAt']) && newData.child('id').val() == $kpiId"
           }
         },
+        "config": {
+          "checkSchedule": {
+            ".validate": "newData.hasChildren(['checkIn', 'checkOut', 'weekdays', 'timezone', 'updatedAt'])"
+          }
+        },
         "managerChecks": {
           "$month": {
             "entries": {
