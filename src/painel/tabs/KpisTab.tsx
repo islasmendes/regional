@@ -99,7 +99,9 @@ function formulaFromDraft(kind: IndicatorKind, numRef: string, denRef: string): 
 function kindSummary(kind: IndicatorKind, alvoUnidade: AlvoUnidade | null | undefined): string {
   if (kind === 'conversao') return 'Conversão A ÷ B'
   if (kind === 'alvo') {
-    return alvoUnidade === 'absolute' ? 'Alvo · número absoluto' : 'Alvo · percentual (%)'
+    if (alvoUnidade === 'evidencia') return 'Só evidenciar · só Real'
+    if (alvoUnidade === 'absolute') return 'Alvo · número absoluto'
+    return 'Alvo · percentual (%)'
   }
   return 'Volume · Meta/Real na Matriz'
 }
@@ -154,6 +156,15 @@ function AlvoUnidadeField({
         label: ALVO_UNIDADE_LABELS[unit],
       }))}
     />
+  )
+}
+
+function AlvoUnidadeHint({ value }: { value: AlvoUnidade }) {
+  if (value !== 'evidencia') return null
+  return (
+    <p className="painel-muted">
+      Só evidenciar: na Matriz aparece apenas o Real — sem Meta/Alvo.
+    </p>
   )
 }
 
@@ -427,10 +438,13 @@ export function KpisTab({ stores }: Props) {
           />
 
           {draft.kind === 'alvo' && (
-            <AlvoUnidadeField
-              value={draft.alvoUnidade}
-              onChange={(alvoUnidade) => setDraft((d) => ({ ...d, alvoUnidade }))}
-            />
+            <>
+              <AlvoUnidadeField
+                value={draft.alvoUnidade}
+                onChange={(alvoUnidade) => setDraft((d) => ({ ...d, alvoUnidade }))}
+              />
+              <AlvoUnidadeHint value={draft.alvoUnidade} />
+            </>
           )}
 
           <div className="painel-kpi-flags">
@@ -663,10 +677,15 @@ export function KpisTab({ stores }: Props) {
                           )}
                         />
                         {subDraft.kind === 'alvo' && (
-                          <AlvoUnidadeField
-                            value={subDraft.alvoUnidade}
-                            onChange={(alvoUnidade) => setSubDraft((d) => ({ ...d, alvoUnidade }))}
-                          />
+                          <>
+                            <AlvoUnidadeField
+                              value={subDraft.alvoUnidade}
+                              onChange={(alvoUnidade) =>
+                                setSubDraft((d) => ({ ...d, alvoUnidade }))
+                              }
+                            />
+                            <AlvoUnidadeHint value={subDraft.alvoUnidade} />
+                          </>
                         )}
                         <div className="painel-kpi-flags">
                           <Toggle

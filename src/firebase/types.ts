@@ -20,12 +20,16 @@ export type StoreMeta = {
  * Como o indicador aparece na matriz / cálculos:
  * - volume: Meta | Real | Proj%
  * - conversao: cálculo (ex.: Leads / Agendamentos) — sem Meta/Real/Proj clássicos
- * - alvo: Alvo | Real (ex.: NPS)
+ * - alvo: Alvo | Real (ex.: NPS) — ou só Real quando unidade = evidência
  */
 export type IndicatorKind = 'volume' | 'conversao' | 'alvo'
 
-/** Unidade do tipo Alvo (ex.: NPS % ou nota absoluta). */
-export type AlvoUnidade = 'percent' | 'absolute'
+/**
+ * Unidade do tipo Alvo:
+ * - percent / absolute: Alvo + Real
+ * - evidencia: só Real (sem meta/alvo) — comum em subindicadores
+ */
+export type AlvoUnidade = 'percent' | 'absolute' | 'evidencia'
 
 export type FormulaOperand = {
   /** Referência a um KPI-mãe ou a um sub. */
@@ -131,6 +135,7 @@ export const INDICATOR_KIND_LABELS: Record<IndicatorKind, string> = {
 export const ALVO_UNIDADE_LABELS: Record<AlvoUnidade, string> = {
   percent: 'Percentual (%)',
   absolute: 'Número absoluto',
+  evidencia: 'Só evidenciar (só Real)',
 }
 
 export const INDICATOR_KIND_SHORT: Record<IndicatorKind, string> = {
@@ -139,12 +144,15 @@ export const INDICATOR_KIND_SHORT: Record<IndicatorKind, string> = {
   alvo: 'Alvo',
 }
 
-export function matrixColumnsForKind(kind: IndicatorKind): string[] {
+export function matrixColumnsForKind(
+  kind: IndicatorKind,
+  alvoUnidade?: AlvoUnidade | null,
+): string[] {
   switch (kind) {
     case 'conversao':
       return ['Conversão']
     case 'alvo':
-      return ['Alvo', 'Real']
+      return alvoUnidade === 'evidencia' ? ['Real'] : ['Alvo', 'Real']
     default:
       return ['Meta', 'Real', 'Proj%']
   }
@@ -166,6 +174,23 @@ export function needsMonthMeta(kind: IndicatorKind): boolean {
   return kind === 'volume' || kind === 'alvo'
 }
 
+/** Meta/Alvo mensal — falso para Alvo em modo só evidenciar. */
+export function needsMonthMetaFor(indicator: {
+  kind: IndicatorKind
+  alvoUnidade?: AlvoUnidade | null
+}): boolean {
+  if (indicator.kind === 'volume') return true
+  if (indicator.kind === 'alvo') return indicator.alvoUnidade !== 'evidencia'
+  return false
+}
+
 export function metaFieldLabel(kind: IndicatorKind): string {
   return kind === 'alvo' ? 'Alvo' : 'Meta'
+}
+
+export function alvoUnidadeShort(unidade: AlvoUnidade | null | undefined): string {
+  if (unidade === 'absolute') return 'nº'
+  if (unidade === 'evidencia') return 'evid.'
+  if (unidade === 'percent') return '%'
+  return ''
 }

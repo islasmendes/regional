@@ -44,7 +44,7 @@ function normalizeKind(raw: unknown): IndicatorKind {
 
 function normalizeAlvoUnidade(kind: IndicatorKind, raw: unknown): AlvoUnidade | null {
   if (kind !== 'alvo') return null
-  if (raw === 'percent' || raw === 'absolute') return raw
+  if (raw === 'percent' || raw === 'absolute' || raw === 'evidencia') return raw
   return 'percent'
 }
 
@@ -203,7 +203,7 @@ function buildKpiPayload(
         )
       : null
   if (kind === 'alvo' && !alvoUnidade) {
-    throw new Error('Alvo: selecione a unidade (% ou número absoluto).')
+    throw new Error('Alvo: selecione a unidade (%, absoluto ou só evidenciar).')
   }
   validateChecks(kind, checkIn, checkOut)
   validateFormula(kind, kind === 'conversao' ? formula : null)
@@ -349,7 +349,7 @@ function buildSubPayload(
     throw new Error('Sub volume: ative check-in e/ou check-out, ou use tipo conversão/alvo.')
   }
   if (kind === 'alvo' && !alvoUnidade) {
-    throw new Error('Sub alvo: selecione a unidade (% ou número absoluto).')
+    throw new Error('Sub alvo: selecione a unidade (%, absoluto ou só evidenciar).')
   }
   validateFormula(kind, kind === 'conversao' ? formula : null)
   return {
