@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Regional Alta Performance</title>
+    <script>
+      (function () {
+        var base = '/regional/';
+        var path = location.pathname.replace(base, '');
+        path = path.replace(/^\//, '').replace(/\/$/, '');
+        if (!path || path === 'index.html') path = 'painel';
+        try {
+          sessionStorage.setItem('regional-redirect', path);
+        } catch (e) {}
+        location.replace(base + '?p=' + encodeURIComponent(path));
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Abrindo…</p>
+  </body>
+</html>
