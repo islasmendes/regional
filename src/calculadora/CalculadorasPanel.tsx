@@ -4,7 +4,6 @@ import {
   crescimentoRelativo,
   formatPlain,
   formatSigned,
-  gapAbsoluto,
   parseLocaleNumber,
   pontosPercentuais,
   toneFromSigned,
@@ -17,10 +16,9 @@ type InputProps = {
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  hint?: string
 }
 
-function InputCell({ label, value, onChange, placeholder, hint }: InputProps) {
+function InputCell({ label, value, onChange, placeholder }: InputProps) {
   return (
     <label className="calc-input-cell">
       <span className="calc-input-label">{label}</span>
@@ -31,12 +29,12 @@ function InputCell({ label, value, onChange, placeholder, hint }: InputProps) {
         placeholder={placeholder ?? '—'}
         autoComplete="off"
       />
-      {hint ? <span className="calc-input-hint">{hint}</span> : null}
     </label>
   )
 }
 
 type KpiCardProps = {
+  id: string
   label: string
   value: string
   tone?: ResultTone
@@ -53,165 +51,158 @@ function KpiCard({ label, value, tone = 'neutral', sub }: KpiCardProps) {
   )
 }
 
-function formatIntish(value: number): string {
-  if (Number.isInteger(value)) return value.toLocaleString('pt-BR')
-  return value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+function toneAtingimento(att: number | null): ResultTone {
+  if (att === null) return 'neutral'
+  if (att >= 100) return 'positive'
+  if (att >= 95) return 'warn'
+  return 'negative'
+}
+
+/** Resultados de um bloco Meta / Real / YoY. */
+function buildBlockCards(opts: {
+  prefix: string
+  meta: number | null
+  real: number | null
+  yoy: number | null
+  mode: 'pct' | 'abs'
+}): KpiCardProps[] {
+  const { prefix, meta, real, yoy, mode } = opts
+  if (meta === null || real === null) return []
+
+  const att = atingimento(real, meta)
+  const variacao = mode === 'pct' ? pontosPercentuais(real, meta) : real - meta
+  const cresc = crescimentoRelativo(real, meta)
+  const varSuffix = mode === 'pct' ? ' p.p.' : ''
+  const out: KpiCardProps[] = [
+    {
+      id: `${prefix}-att`,
+      label: 'Atingimento',
+      value: att === null ? '—' : formatPlain(att, 1, '%'),
+      tone: toneAtingimento(att),
+      sub: 'Real ÷ Meta',
+    },
+    {
+      id: `${prefix}-var`,
+      label: 'Variação',
+      value: formatSigned(variacao, 2, varSuffix),
+      tone: toneFromSigned(variacao),
+      sub: mode === 'pct' ? 'Real − Meta (p.p.)' : 'Real − Meta (nº)',
+    },
+    {
+      id: `${prefix}-cresc`,
+      label: 'Crescimento',
+      value: cresc === null ? '—' : formatSigned(cresc, 2, '%'),
+      tone: toneFromSigned(cresc),
+      sub: '(Real − Meta) ÷ Meta',
+    },
+  ]
+
+  if (yoy !== null) {
+    const varYoY = mode === 'pct' ? pontosPercentuais(real, yoy) : real - yoy
+    const crescYoY = crescimentoRelativo(real, yoy)
+    out.push(
+      {
+        id: `${prefix}-var-yoy`,
+        label: 'Variação YoY',
+        value: formatSigned(varYoY, 2, varSuffix),
+        tone: toneFromSigned(varYoY),
+        sub: mode === 'pct' ? 'Real − Ano ant. (p.p.)' : 'Real − Ano ant. (nº)',
+      },
+      {
+        id: `${prefix}-cresc-yoy`,
+        label: 'Crescimento YoY',
+        value: crescYoY === null ? '—' : formatSigned(crescYoY, 2, '%'),
+        tone: toneFromSigned(crescYoY),
+        sub: '(Real − Ano ant.) ÷ Ano ant.',
+      },
+    )
+  }
+
+  return out
 }
 
 export function CalculadorasPanel() {
   const [metaPct, setMetaPct] = useState('55')
   const [realPct, setRealPct] = useState('53.8')
+  const [yoyPct, setYoyPct] = useState('')
   const [metaAbs, setMetaAbs] = useState('')
   const [realAbs, setRealAbs] = useState('')
-  const [baseTaxa, setBaseTaxa] = useState('')
+  const [yoyAbs, setYoyAbs] = useState('')
 
-  const cards = useMemo(() => {
-    const mPct = parseLocaleNumber(metaPct)
-    const rPct = parseLocaleNumber(realPct)
-    const mAbs = parseLocaleNumber(metaAbs)
-    const rAbs = parseLocaleNumber(realAbs)
-    const base = parseLocaleNumber(baseTaxa)
+  const pctCards = useMemo(
+    () =>
+      buildBlockCards({
+        prefix: 'pct',
+        meta: parseLocaleNumber(metaPct),
+        real: parseLocaleNumber(realPct),
+        yoy: parseLocaleNumber(yoyPct),
+        mode: 'pct',
+      }),
+    [metaPct, realPct, yoyPct],
+  )
 
-    const out: KpiCardProps[] = []
+  const absCards = useMemo(
+    () =>
+      buildBlockCards({
+        prefix: 'abs',
+        meta: parseLocaleNumber(metaAbs),
+        real: parseLocaleNumber(realAbs),
+        yoy: parseLocaleNumber(yoyAbs),
+        mode: 'abs',
+      }),
+    [metaAbs, realAbs, yoyAbs],
+  )
 
-    if (mPct !== null && rPct !== null) {
-      const att = atingimento(rPct, mPct)
-      const pp = pontosPercentuais(rPct, mPct)
-      const cresc = crescimentoRelativo(rPct, mPct)
-
-      out.push({
-        label: 'Atingimento',
-        value: att === null ? '—' : formatPlain(att, 1, '%'),
-        tone: att === null ? 'neutral' : att >= 100 ? 'positive' : att >= 95 ? 'warn' : 'negative',
-        sub: 'Real % ÷ Meta %',
-      })
-      out.push({
-        label: 'Variação',
-        value: formatSigned(pp, 2, ' p.p.'),
-        tone: toneFromSigned(pp),
-        sub: 'pontos percentuais',
-      })
-      out.push({
-        label: 'Crescimento',
-        value: cresc === null ? '—' : formatSigned(cresc, 2, '%'),
-        tone: toneFromSigned(cresc),
-        sub: 'relativo à meta',
-      })
-      out.push({
-        label: 'Falta / sobra',
-        value: formatSigned(mPct - rPct, 2, ' p.p.'),
-        tone: mPct - rPct > 0 ? 'warn' : 'positive',
-        sub: mPct - rPct > 0 ? 'ainda falta pra meta' : 'acima da meta',
-      })
-    }
-
-    if (mAbs !== null && rAbs !== null) {
-      const attAbs = atingimento(rAbs, mAbs)
-      const gap = gapAbsoluto(rAbs, mAbs)
-      const crescAbs = crescimentoRelativo(rAbs, mAbs)
-
-      out.push({
-        label: 'Atingimento (nº)',
-        value: attAbs === null ? '—' : formatPlain(attAbs, 1, '%'),
-        tone:
-          attAbs === null ? 'neutral' : attAbs >= 100 ? 'positive' : attAbs >= 95 ? 'warn' : 'negative',
-        sub: 'Real ÷ Meta',
-      })
-      out.push({
-        label: 'Gap absoluto',
-        value: formatSigned(gap, 2),
-        tone: toneFromSigned(gap),
-        sub: `${formatIntish(rAbs)} vs ${formatIntish(mAbs)}`,
-      })
-      out.push({
-        label: 'Crescimento (nº)',
-        value: crescAbs === null ? '—' : formatSigned(crescAbs, 2, '%'),
-        tone: toneFromSigned(crescAbs),
-        sub: 'relativo à meta numérica',
-      })
-      out.push({
-        label: 'Falta (nº)',
-        value: formatSigned(mAbs - rAbs, 2),
-        tone: mAbs - rAbs > 0 ? 'warn' : 'positive',
-        sub: mAbs - rAbs > 0 ? 'volume que falta' : 'acima da meta',
-      })
-    }
-
-    if (base !== null && rPct !== null) {
-      const ppYoY = pontosPercentuais(rPct, base)
-      const crescYoY = crescimentoRelativo(rPct, base)
-      out.push({
-        label: 'vs base (p.p.)',
-        value: formatSigned(ppYoY, 2, ' p.p.'),
-        tone: toneFromSigned(ppYoY),
-        sub: 'variação em pontos',
-      })
-      out.push({
-        label: 'vs base (%)',
-        value: crescYoY === null ? '—' : formatSigned(crescYoY, 2, '%'),
-        tone: toneFromSigned(crescYoY),
-        sub: 'crescimento relativo',
-      })
-    }
-
-    if (mPct !== null && base !== null) {
-      const metaVsBasePp = pontosPercentuais(mPct, base)
-      const metaVsBaseCresc = crescimentoRelativo(mPct, base)
-      out.push({
-        label: 'Meta vs base',
-        value: formatSigned(metaVsBasePp, 2, ' p.p.'),
-        tone: toneFromSigned(metaVsBasePp),
-        sub:
-          metaVsBaseCresc === null
-            ? 'ambição da meta'
-            : `${formatSigned(metaVsBaseCresc, 1, '%')} relativo`,
-      })
-    }
-
-    return out
-  }, [metaPct, realPct, metaAbs, realAbs, baseTaxa])
+  const hasAny = pctCards.length > 0 || absCards.length > 0
 
   return (
     <div className="calc-panel">
       <section className="calc-bar" aria-label="Entradas">
         <div className="calc-bar-group">
-          <span className="calc-bar-title">%</span>
-          <div className="calc-bar-fields">
+          <span className="calc-bar-title">Percentual</span>
+          <div className="calc-bar-fields calc-bar-fields--3">
             <InputCell label="Meta %" value={metaPct} onChange={setMetaPct} placeholder="55" />
             <InputCell label="Real %" value={realPct} onChange={setRealPct} placeholder="53,8" />
+            <InputCell label="YoY %" value={yoyPct} onChange={setYoyPct} placeholder="50" />
           </div>
         </div>
 
         <div className="calc-bar-group">
-          <span className="calc-bar-title">Nº</span>
-          <div className="calc-bar-fields">
+          <span className="calc-bar-title">Número absoluto</span>
+          <div className="calc-bar-fields calc-bar-fields--3">
             <InputCell label="Meta nº" value={metaAbs} onChange={setMetaAbs} placeholder="1000" />
             <InputCell label="Real nº" value={realAbs} onChange={setRealAbs} placeholder="920" />
-          </div>
-        </div>
-
-        <div className="calc-bar-group">
-          <span className="calc-bar-title">Base</span>
-          <div className="calc-bar-fields">
-            <InputCell
-              label="Ano ant. / base %"
-              value={baseTaxa}
-              onChange={setBaseTaxa}
-              placeholder="50"
-              hint="opcional · YoY"
-            />
+            <InputCell label="YoY nº" value={yoyAbs} onChange={setYoyAbs} placeholder="800" />
           </div>
         </div>
       </section>
 
-      {cards.length === 0 ? (
-        <p className="calc-empty">Preencha Meta % e Real % (ou os números) pra ver o resultado.</p>
+      {!hasAny ? (
+        <p className="calc-empty">Preencha Meta e Real (%) ou (nº) pra ver o resultado.</p>
       ) : (
-        <section className="calc-kpi-grid" aria-label="Resultados">
-          {cards.map((card) => (
-            <KpiCard key={card.label} {...card} />
-          ))}
-        </section>
+        <div className="calc-blocks">
+          {pctCards.length > 0 && (
+            <section className="calc-block" aria-label="Resultados percentuais">
+              <h2 className="calc-block-title">Resultados %</h2>
+              <div className="calc-kpi-grid">
+                {pctCards.map((card) => (
+                  <KpiCard key={card.id} {...card} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {absCards.length > 0 && (
+            <section className="calc-block" aria-label="Resultados absolutos">
+              <h2 className="calc-block-title">Resultados nº</h2>
+              <div className="calc-kpi-grid">
+                {absCards.map((card) => (
+                  <KpiCard key={card.id} {...card} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       )}
     </div>
   )
