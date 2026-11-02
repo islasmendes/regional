@@ -9,17 +9,17 @@ Tudo que for feature daqui pra frente entra **nesta branch/PR**, até decidirmos
 3. Login gestor `/performance` ✅
 4. Sidebar + abas reordenáveis + isolamento por sigla ✅
 
-## Nesta PR (#4)
+## Já mergeado (#4 / #5)
 
-1. Cadastro de KPIs por loja (`stores/{SIGLA}/kpis`) ✅
-2. Aba **Horários** — janelas IN/OUT + dias da semana (cards) ✅
-3. Input do gestor em `/performance` (IN/OUT do dia, respeitando agenda) ✅
-4. Tipos de indicador (volume / conversão / alvo) + IN/OUT por KPI e por sub ✅
-5. Subindicadores aninhados no KPI-mãe + fórmula A÷B ✅
-6. Meta/alvo mensal em `stores/{SIGLA}/metas/{yyyy-MM}` ✅
-7. Blocos **100% largura** + escopo **TODOS** (KPI / Horários) ✅ — ver `docs/UI_RULES.md`
-8. Matriz no painel + resultado do sistema
-9. Blocos de acuracidade / aderência
+1. KPIs tipados + subs + meta mensal + Horários + input gestor ✅
+2. Layout fluido + escopo **TODOS** ✅
+
+## Em andamento
+
+1. Controles no tema (select / hora / flags) — sem nativos ✅
+2. Aba **Matriz** (lojas × KPIs) ✅
+3. Override de resultado no painel + acuracidade
+4. Blocos de aderência
 
 ## Modelo de indicador
 

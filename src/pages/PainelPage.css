@@ -828,3 +828,162 @@
     grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
   }
 }
+
+/* —— Matriz —— */
+.matriz-toolbar {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.matriz-wrap {
+  padding: 0.65rem;
+  overflow: hidden;
+}
+
+.matriz-scroll {
+  width: 100%;
+  overflow: auto;
+  border-radius: 0.85rem;
+  border: 1px solid #1f2937;
+}
+
+.matriz-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 42rem;
+}
+
+.matriz-table th,
+.matriz-table td {
+  border-bottom: 1px solid #1f2937;
+  border-right: 1px solid #1f2937;
+  padding: 0.7rem 0.75rem;
+  vertical-align: top;
+  background: #0b1220;
+}
+
+.matriz-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #111827;
+}
+
+.matriz-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  min-width: 5.5rem;
+  background: #111827 !important;
+  text-align: left;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.matriz-loja {
+  color: #99f6e4;
+}
+
+.matriz-kpi-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  min-width: 9.5rem;
+}
+
+.matriz-kpi-head:disabled {
+  cursor: default;
+}
+
+.matriz-kpi-head strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.matriz-kpi-head small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #93a4bd;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.matriz-kpi-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  margin-top: 0.35rem;
+  background: var(--kpi, #14b8a6);
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px #14b8a622;
+}
+
+.matriz-cell {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.matriz-cell--volume,
+.matriz-cell--alvo {
+  grid-template-columns: repeat(3, minmax(3.2rem, 1fr));
+}
+
+.matriz-cell--alvo {
+  grid-template-columns: repeat(2, minmax(3.2rem, 1fr));
+}
+
+.matriz-cell--conversao {
+  grid-template-columns: 1fr;
+}
+
+.matriz-cell-label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.matriz-cell strong {
+  display: block;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+}
+
+.matriz-cell strong.is-override {
+  color: #fbbf24;
+}
+
+.matriz-subhead-list,
+.matriz-sub-cells {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.matriz-subhead-list span,
+.matriz-sub-name {
+  font-size: 0.72rem;
+  color: #93a4bd;
+  font-weight: 700;
+}
+
+.matriz-sub-block {
+  padding-top: 0.45rem;
+  border-top: 1px dashed #243247;
+}
+
+.matriz-subhead-row th {
+  background: #0f172a;
+  font-weight: 600;
+}

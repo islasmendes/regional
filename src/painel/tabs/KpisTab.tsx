@@ -40,6 +40,8 @@ import {
   storeScopeLabel,
   type StoreScope,
 } from '../../lib/storeScope'
+import { ThemeFlags } from '../../ui/ThemeFlags'
+import { ThemeSelect } from '../../ui/ThemeSelect'
 import { StoreScopeSelect } from '../StoreScopeSelect'
 
 type Props = {
@@ -127,15 +129,6 @@ function Toggle({
 
 function KindBadge({ kind }: { kind: IndicatorKind }) {
   return <span className={`painel-kind-badge painel-kind-badge--${kind}`}>{INDICATOR_KIND_SHORT[kind]}</span>
-}
-
-function CheckFlags({ checkIn, checkOut }: { checkIn: boolean; checkOut: boolean }) {
-  return (
-    <span className="painel-flag-row">
-      <span className={`painel-flag ${checkIn ? 'is-on' : ''}`}>IN</span>
-      <span className={`painel-flag ${checkOut ? 'is-on' : ''}`}>OUT</span>
-    </span>
-  )
 }
 
 export function KpisTab({ stores }: Props) {
@@ -360,28 +353,20 @@ export function KpisTab({ stores }: Props) {
           sem Meta/Real/Proj%.
         </p>
         <div className="painel-form--row">
-          <label>
-            Numerador
-            <select value={numRef} onChange={(e) => onNum(e.target.value)} required>
-              <option value="">Selecione…</option>
-              {formulaOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Denominador
-            <select value={denRef} onChange={(e) => onDen(e.target.value)} required>
-              <option value="">Selecione…</option>
-              {formulaOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ThemeSelect
+            label="Numerador"
+            value={numRef}
+            onChange={onNum}
+            placeholder="Selecione…"
+            options={formulaOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
+          <ThemeSelect
+            label="Denominador"
+            value={denRef}
+            onChange={onDen}
+            placeholder="Selecione…"
+            options={formulaOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
         </div>
         {numRef && denRef && (
           <p className="painel-formula-preview">
@@ -451,31 +436,27 @@ export function KpisTab({ stores }: Props) {
             </label>
           </div>
 
-          <label>
-            Tipo na matriz
-            <select
-              value={draft.kind}
-              onChange={(e) => {
-                const kind = e.target.value as IndicatorKind
-                const checks = defaultChecksForKind(kind)
-                setDraft((d) => ({
-                  ...d,
-                  kind,
-                  checkIn: checks.checkIn,
-                  checkOut: checks.checkOut,
-                  numRef: kind === 'conversao' ? d.numRef : '',
-                  denRef: kind === 'conversao' ? d.denRef : '',
-                  metaMes: needsMonthMeta(kind) ? d.metaMes : '',
-                }))
-              }}
-            >
-              {(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map((kind) => (
-                <option key={kind} value={kind}>
-                  {INDICATOR_KIND_LABELS[kind]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ThemeSelect
+            label="Tipo na matriz"
+            value={draft.kind}
+            onChange={(raw) => {
+              const kind = raw as IndicatorKind
+              const checks = defaultChecksForKind(kind)
+              setDraft((d) => ({
+                ...d,
+                kind,
+                checkIn: checks.checkIn,
+                checkOut: checks.checkOut,
+                numRef: kind === 'conversao' ? d.numRef : '',
+                denRef: kind === 'conversao' ? d.denRef : '',
+                metaMes: needsMonthMeta(kind) ? d.metaMes : '',
+              }))
+            }}
+            options={(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map((kind) => ({
+              value: kind,
+              label: INDICATOR_KIND_LABELS[kind],
+            }))}
+          />
           <p className="painel-hint">Colunas na matriz: {matrixColumnsForKind(draft.kind).join(' · ')}</p>
 
           <div className="painel-kpi-flags">
@@ -570,7 +551,7 @@ export function KpisTab({ stores }: Props) {
                       <div className="painel-kpi-title-row">
                         <strong>{kpi.nome}</strong>
                         <KindBadge kind={kpi.kind} />
-                        <CheckFlags checkIn={kpi.checkIn} checkOut={kpi.checkOut} />
+                        <ThemeFlags checkIn={kpi.checkIn} checkOut={kpi.checkOut} />
                       </div>
                       <span className="painel-muted">
                         {kpi.kind === 'conversao'
@@ -642,7 +623,7 @@ export function KpisTab({ stores }: Props) {
                                 <div className="painel-kpi-title-row">
                                   <strong>{sub.nome}</strong>
                                   <KindBadge kind={sub.kind} />
-                                  <CheckFlags checkIn={sub.checkIn} checkOut={sub.checkOut} />
+                                  <ThemeFlags checkIn={sub.checkIn} checkOut={sub.checkOut} />
                                 </div>
                                 <span className="painel-muted">
                                   {sub.kind === 'conversao'
@@ -713,31 +694,29 @@ export function KpisTab({ stores }: Props) {
                             minLength={2}
                           />
                         </label>
-                        <label>
-                          Tipo
-                          <select
-                            value={subDraft.kind}
-                            onChange={(e) => {
-                              const kind = e.target.value as IndicatorKind
-                              const checks = defaultChecksForKind(kind)
-                              setSubDraft((d) => ({
-                                ...d,
-                                kind,
-                                checkIn: checks.checkIn,
-                                checkOut: checks.checkOut,
-                                numRef: kind === 'conversao' ? d.numRef : '',
-                                denRef: kind === 'conversao' ? d.denRef : '',
-                                metaMes: needsMonthMeta(kind) ? d.metaMes : '',
-                              }))
-                            }}
-                          >
-                            {(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map((kind) => (
-                              <option key={kind} value={kind}>
-                                {INDICATOR_KIND_LABELS[kind]}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <ThemeSelect
+                          label="Tipo"
+                          value={subDraft.kind}
+                          onChange={(raw) => {
+                            const kind = raw as IndicatorKind
+                            const checks = defaultChecksForKind(kind)
+                            setSubDraft((d) => ({
+                              ...d,
+                              kind,
+                              checkIn: checks.checkIn,
+                              checkOut: checks.checkOut,
+                              numRef: kind === 'conversao' ? d.numRef : '',
+                              denRef: kind === 'conversao' ? d.denRef : '',
+                              metaMes: needsMonthMeta(kind) ? d.metaMes : '',
+                            }))
+                          }}
+                          options={(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map(
+                            (kind) => ({
+                              value: kind,
+                              label: INDICATOR_KIND_LABELS[kind],
+                            }),
+                          )}
+                        />
                         <div className="painel-kpi-flags">
                           <Toggle
                             label="Check-in"

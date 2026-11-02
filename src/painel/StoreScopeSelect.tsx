@@ -4,6 +4,7 @@ import {
   type StoreScope,
 } from '../lib/storeScope'
 import type { StoreMeta } from '../firebase/types'
+import { ThemeSelect } from '../ui/ThemeSelect'
 
 type Props = {
   stores: StoreMeta[]
@@ -26,18 +27,18 @@ export function StoreScopeSelect({ stores, value, onChange, hint }: Props) {
 
   return (
     <div className="painel-scope">
-      <label>
-        Loja
-        <select value={value} onChange={(e) => onChange(e.target.value as StoreScope)}>
-          <option value={STORE_SCOPE_ALL}>TODOS (todas as lojas)</option>
-          {stores.map((store) => (
-            <option key={store.code} value={store.code}>
-              {store.code}
-              {store.active === false ? ' (inativa)' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ThemeSelect
+        label="Loja"
+        value={value}
+        onChange={(next) => onChange(next as StoreScope)}
+        options={[
+          { value: STORE_SCOPE_ALL, label: 'TODOS (todas as lojas)' },
+          ...stores.map((store) => ({
+            value: store.code,
+            label: store.active === false ? `${store.code} (inativa)` : store.code,
+          })),
+        ]}
+      />
       <p className="painel-hint painel-scope-hint">{allHint}</p>
     </div>
   )
