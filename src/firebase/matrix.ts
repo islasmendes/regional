@@ -1,6 +1,11 @@
 import { onValue, ref, type Unsubscribe } from 'firebase/database'
 import { assertLojaSigla } from '../lib/sigla'
-import { APP_TIMEZONE, getZonedNow } from '../lib/time'
+import {
+  APP_TIMEZONE,
+  countBusinessDaysRemaining,
+  defaultBusinessWeekdays,
+  getZonedNow,
+} from '../lib/time'
 import { database } from './config'
 import { storeManagerChecksPath, storeMetasMonthPath, storeResultsPath } from './paths'
 import type {
@@ -179,10 +184,28 @@ export function describeProjPct(
 }
 
 /**
- * Quanto falta no Real (absoluto) até o fim do mês para fechar em `pct` da Meta.
- * Ex.: p/100% → Meta − Real; p/85% → Meta×0,85 − Real.
- * Negativo = já passou do alvo.
+ * Ritmo diário absoluto nos dias úteis restantes para fechar em `pct` da Meta.
+ * (Meta×pct/100 − Real) ÷ dias úteis restantes (Seg–Sáb por padrão).
+ * 0 = já alcançou ou passou o alvo.
  */
+export function dailyRitmoToHitMetaPct(
+  meta: number | null,
+  real: number | null,
+  pct: number,
+  monthKey: string,
+  weekdays: Record<string, boolean> = defaultBusinessWeekdays(),
+): number | null {
+  if (meta == null || !Number.isFinite(meta) || meta <= 0) return null
+  if (!Number.isFinite(pct) || pct <= 0) return null
+  const daysLeft = countBusinessDaysRemaining(monthKey, weekdays)
+  if (daysLeft <= 0) return null
+  const done = real != null && Number.isFinite(real) ? real : 0
+  const gap = meta * (pct / 100) - done
+  if (gap <= 0) return 0
+  return gap / daysLeft
+}
+
+/** @deprecated use dailyRitmoToHitMetaPct — mantido como alias da falta total. */
 export function remainingToHitMetaPct(
   meta: number | null,
   real: number | null,
@@ -194,21 +217,26 @@ export function remainingToHitMetaPct(
   return meta * (pct / 100) - done
 }
 
-export function describeRemainingToHit(
+export function describeDailyRitmoToHit(
   meta: number | null,
   real: number | null,
   pct: number,
+  monthKey: string,
+  weekdays: Record<string, boolean> = defaultBusinessWeekdays(),
 ): string | null {
-  const gap = remainingToHitMetaPct(meta, real, pct)
-  if (gap == null || meta == null) return null
+  const ritmo = dailyRitmoToHitMetaPct(meta, real, pct, monthKey, weekdays)
+  if (ritmo == null || meta == null) return null
+  const daysLeft = countBusinessDaysRemaining(monthKey, weekdays)
   const target = meta * (pct / 100)
   const done = real != null && Number.isFinite(real) ? real : 0
-  const targetLabel = target.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  const gap = Math.max(0, target - done)
+  const ritmoLabel = ritmo.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
   const gapLabel = gap.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
-  if (gap <= 0) {
-    return `Já no ritmo de ${pct}% da meta (alvo ${targetLabel}; Real ${done}). Folga ${gapLabel}.`
+  const targetLabel = target.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  if (ritmo <= 0) {
+    return `Já no alvo de ${pct}% (Real ${done} ≥ ${targetLabel}). Ritmo necessário: 0 / dia útil.`
   }
-  return `Faltam ${gapLabel} no Real até o fim do mês para fechar em ${pct}% da meta (alvo ${targetLabel}).`
+  return `Ritmo p/${pct}%: ${ritmoLabel} / dia útil · faltam ${gapLabel} em ${daysLeft} dia(s) útil(is) (alvo ${targetLabel}).`
 }
 
 function resolveOperandReal(
