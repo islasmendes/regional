@@ -188,6 +188,15 @@
   background: #111827cc;
   backdrop-filter: blur(8px);
   box-sizing: border-box;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.painel-panel:focus-within,
+.painel-panel:has(.ui-select.is-open),
+.painel-panel:has(.ui-time.is-open) {
+  z-index: 20;
 }
 
 .painel-tab {
@@ -835,6 +844,48 @@
   gap: 0.55rem;
 }
 
+.matriz-toolbar-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.matriz-layout-toggle {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.matriz-layout-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.matriz-sigla-btn {
+  border: 1px solid #14b8a666;
+  border-radius: 0.55rem;
+  background: linear-gradient(160deg, #134e4a66, #0b1220);
+  color: #99f6e4;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+}
+
+.matriz-sigla-btn:hover {
+  border-color: #2dd4bf;
+  color: #ecfeff;
+}
+
+.matriz-meta-value {
+  color: #7dd3fc !important;
+}
+
+.matriz-metric {
+  min-width: 3.4rem;
+}
+
 .matriz-wrap {
   padding: 0.65rem;
   overflow: hidden;
@@ -986,4 +1037,126 @@
 .matriz-subhead-row th {
   background: #0f172a;
   font-weight: 600;
+}
+
+.matriz-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.matriz-store-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.matriz-stack-kpis {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.matriz-kpi-block {
+  padding: 0.75rem;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  background: #0b1220aa;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.matriz-kpi-block-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.matriz-kpi-block-head strong {
+  display: block;
+}
+
+.matriz-kpi-block-head small {
+  color: #93a4bd;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.matriz-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  background: #020617cc;
+  display: grid;
+  place-items: end center;
+  padding: 1rem;
+}
+
+.matriz-editor {
+  width: min(100%, 40rem);
+  max-height: min(92dvh, 52rem);
+  overflow: auto;
+  border: 1px solid #243247;
+  border-radius: 1rem 1rem 0.75rem 0.75rem;
+  background: #0b1220;
+  padding: 1rem 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.85rem;
+  box-shadow: 0 -20px 60px #020617aa;
+}
+
+.matriz-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.matriz-editor-head h3 {
+  margin: 0.15rem 0 0;
+}
+
+.matriz-editor-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.matriz-editor-item {
+  padding: 0.75rem;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  background: #111827;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.matriz-editor-item-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.matriz-editor-item-title small {
+  color: #93a4bd;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.matriz-editor-sub {
+  padding-top: 0.55rem;
+  border-top: 1px dashed #243247;
+  display: grid;
+  gap: 0.45rem;
+}
+
+@media (min-width: 720px) {
+  .matriz-editor-backdrop {
+    place-items: center;
+  }
+
+  .matriz-editor {
+    border-radius: 1rem;
+  }
 }
