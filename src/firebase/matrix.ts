@@ -29,8 +29,17 @@ export type MonthCheckTotals = Record<
 
 export type MonthResultOverride = Record<
   string,
-  { valor?: number; subs?: Record<string, { valor?: number }> }
+  { valor?: number; updatedAt?: string; updatedBy?: string; subs?: Record<string, { valor?: number }> }
 >
+
+export function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value.replace(',', '.'))
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
 
 export function subscribeMonthMetasTree(
   siglaInput: string,
@@ -153,15 +162,13 @@ function resolveOperandReal(
 ): number | null {
   const op = formula[side]
   if (op.scope === 'sub' && op.subId) {
-    const override = overrides[op.kpiId]?.subs?.[op.subId]?.valor
-    if (typeof override === 'number') return override
-    const v = checks[op.kpiId]?.subs?.[op.subId]?.checkOut
-    return typeof v === 'number' ? v : null
+    const override = asFiniteNumber(overrides[op.kpiId]?.subs?.[op.subId]?.valor)
+    if (override != null) return override
+    return asFiniteNumber(checks[op.kpiId]?.subs?.[op.subId]?.checkOut)
   }
-  const override = overrides[op.kpiId]?.valor
-  if (typeof override === 'number') return override
-  const v = checks[op.kpiId]?.checkOut
-  return typeof v === 'number' ? v : null
+  const override = asFiniteNumber(overrides[op.kpiId]?.valor)
+  if (override != null) return override
+  return asFiniteNumber(checks[op.kpiId]?.checkOut)
 }
 
 export function buildMatrixCell(params: {
@@ -201,13 +208,11 @@ export function buildMatrixCell(params: {
     }
   }
 
-  const meta = typeof metaValor === 'number' ? metaValor : null
-  const hasOverride = typeof overrideValor === 'number'
-  const real = hasOverride
-    ? overrideValor!
-    : typeof checkOut === 'number'
-      ? checkOut
-      : null
+  const meta = asFiniteNumber(metaValor)
+  const override = asFiniteNumber(overrideValor)
+  const checkout = asFiniteNumber(checkOut)
+  const hasOverride = override != null
+  const real = hasOverride ? override : checkout
 
   return {
     kind,
