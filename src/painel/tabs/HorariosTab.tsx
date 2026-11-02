@@ -1,37 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   defaultCheckSchedule,
-  saveCheckSchedule,
+  saveCheckScheduleForStores,
   subscribeCheckSchedule,
 } from '../../firebase/checkSchedule'
 import type { CheckScheduleConfig, StoreMeta, TimeWindow } from '../../firebase/types'
+import {
+  STORE_SCOPE_ALL,
+  canonicalSigla,
+  isStoreScopeAll,
+  resolveTargetSiglas,
+  storeScopeLabel,
+  type StoreScope,
+} from '../../lib/storeScope'
 import { WEEKDAY_LABELS } from '../../lib/time'
+import { StoreScopeSelect } from '../StoreScopeSelect'
 
 type Props = {
   stores: StoreMeta[]
 }
 
 export function HorariosTab({ stores }: Props) {
-  const [sigla, setSigla] = useState(stores[0]?.code ?? '')
+  const [scope, setScope] = useState<StoreScope>(STORE_SCOPE_ALL)
   const [draft, setDraft] = useState<CheckScheduleConfig>(() => defaultCheckSchedule())
   const [cloudStamp, setCloudStamp] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!sigla && stores[0]?.code) setSigla(stores[0].code)
-  }, [stores, sigla])
+  const targets = useMemo(() => resolveTargetSiglas(scope, stores), [scope, stores])
+  const readSigla = useMemo(() => canonicalSigla(scope, stores), [scope, stores])
+  const scopeText = storeScopeLabel(scope, targets.length)
 
   useEffect(() => {
-    if (!sigla) {
+    if (!readSigla) {
       setDraft(defaultCheckSchedule())
       return
     }
-    return subscribeCheckSchedule(sigla, (config) => {
+    return subscribeCheckSchedule(readSigla, (config) => {
       setDraft(config)
       setCloudStamp(config.updatedAt)
     })
-  }, [sigla])
+  }, [readSigla])
 
   const setWindow = (tipo: 'checkIn' | 'checkOut', patch: Partial<TimeWindow>) => {
     setDraft((prev) => ({
@@ -51,14 +60,18 @@ export function HorariosTab({ stores }: Props) {
   }
 
   const onSave = async () => {
-    if (!sigla) return
+    if (targets.length === 0) return
     setBusy(true)
     setMessage(null)
     try {
-      const saved = await saveCheckSchedule(sigla, draft)
+      const saved = await saveCheckScheduleForStores(targets, draft)
       setDraft(saved)
       setCloudStamp(saved.updatedAt)
-      setMessage(`Agenda salva em stores/${sigla}/config/checkSchedule.`)
+      setMessage(
+        isStoreScopeAll(scope)
+          ? `Agenda salva em todas as ${targets.length} lojas (config/checkSchedule).`
+          : `Agenda salva em stores/${scope}/config/checkSchedule.`,
+      )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao salvar horários.')
     } finally {
@@ -87,34 +100,22 @@ export function HorariosTab({ stores }: Props) {
       <header className="painel-tab-head">
         <h2>Horários</h2>
         <p>
-          Janelas de abertura do check-in / check-out e dias ativos — por sigla, em{' '}
-          <code>config/checkSchedule</code>.
+          Janelas de check-in / check-out e dias ativos. Padrão: <strong>TODOS</strong> — a mesma
+          agenda em todas as lojas (escolha uma sigla só para exceção).
         </p>
       </header>
 
       <section className="painel-panel">
-        <label>
-          Loja
-          <select
-            value={sigla}
-            onChange={(e) => {
-              setSigla(e.target.value)
-              setMessage(null)
-            }}
-          >
-            {stores.map((store) => (
-              <option key={store.code} value={store.code}>
-                {store.code}
-              </option>
-            ))}
-          </select>
-        </label>
+        <StoreScopeSelect stores={stores} value={scope} onChange={setScope} />
       </section>
 
       <section className="painel-panel">
         <h3>Dias da semana</h3>
         <p className="painel-hint" style={{ marginTop: 0 }}>
           Toque nos cards para ativar / desativar o dia.
+          {isStoreScopeAll(scope) && readSigla
+            ? ` Preview carregado de ${readSigla}; ao salvar, replica em ${scopeText}.`
+            : ''}
         </p>
         <div className="horario-day-grid" role="group" aria-label="Dias da semana">
           {WEEKDAY_LABELS.map((day) => {
@@ -208,10 +209,10 @@ export function HorariosTab({ stores }: Props) {
           <button
             type="button"
             className="painel-btn painel-btn--primary"
-            disabled={busy || !sigla}
+            disabled={busy || targets.length === 0}
             onClick={() => void onSave()}
           >
-            {busy ? 'Salvando…' : 'Salvar agenda da loja'}
+            {busy ? 'Salvando…' : `Salvar agenda (${scopeText})`}
           </button>
         </div>
       </section>

@@ -17,8 +17,9 @@ Tudo que for feature daqui pra frente entra **nesta branch/PR**, até decidirmos
 4. Tipos de indicador (volume / conversão / alvo) + IN/OUT por KPI e por sub ✅
 5. Subindicadores aninhados no KPI-mãe + fórmula A÷B ✅
 6. Meta/alvo mensal em `stores/{SIGLA}/metas/{yyyy-MM}` ✅
-7. Matriz no painel + resultado do sistema
-8. Blocos de acuracidade / aderência
+7. Blocos **100% largura** + escopo **TODOS** (KPI / Horários) ✅ — ver `docs/UI_RULES.md`
+8. Matriz no painel + resultado do sistema
+9. Blocos de acuracidade / aderência
 
 ## Modelo de indicador
 

@@ -25,6 +25,11 @@ function newId(prefix: string): string {
   return `${prefix}${Date.now().toString(36)}`
 }
 
+/** Id compartilhado ao gravar o mesmo KPI/sub em várias lojas (TODOS). */
+export function allocateEntityId(prefix: 'k' | 's' = 'k'): string {
+  return newId(prefix)
+}
+
 const DEFAULT_COLORS = ['#14b8a6', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e']
 
 export function defaultKpiColor(index = 0): string {
@@ -198,11 +203,14 @@ function buildKpiPayload(
   }
 }
 
-export async function createStoreKpi(siglaInput: string, input: StoreKpiInput): Promise<StoreKpi> {
+export async function createStoreKpi(
+  siglaInput: string,
+  input: StoreKpiInput & { id?: string },
+): Promise<StoreKpi> {
   const sigla = assertLojaSigla(siglaInput)
   if (input.nome.trim().length < 2) throw new Error('Nome do KPI deve ter pelo menos 2 caracteres.')
   const existing = await listStoreKpis(sigla)
-  const id = newId('k')
+  const id = input.id?.trim() || newId('k')
   const kpi = buildKpiPayload(
     id,
     input,
@@ -235,9 +243,36 @@ export async function updateStoreKpi(
   return { ...kpi, subs: current.subs }
 }
 
+/** Cria ou atualiza o mesmo id (usado no escopo TODOS). */
+export async function upsertStoreKpi(
+  siglaInput: string,
+  kpiId: string,
+  input: StoreKpiInput & { ordem?: number },
+): Promise<StoreKpi> {
+  const sigla = assertLojaSigla(siglaInput)
+  const path = storeKpiPath(sigla, kpiId)
+  const snap = await get(ref(database, path))
+  if (!snap.exists()) {
+    return createStoreKpi(sigla, { ...input, id: kpiId })
+  }
+  return updateStoreKpi(sigla, kpiId, input)
+}
+
 export async function deleteStoreKpi(siglaInput: string, kpiId: string): Promise<void> {
   const sigla = assertLojaSigla(siglaInput)
   await remove(ref(database, storeKpiPath(sigla, kpiId)))
+}
+
+/** Aplica a mesma operação em várias lojas (escopo TODOS). */
+export async function forEachStoreSigla<T>(
+  siglas: string[],
+  fn: (sigla: string) => Promise<T>,
+): Promise<T[]> {
+  const results: T[] = []
+  for (const sigla of siglas) {
+    results.push(await fn(sigla))
+  }
+  return results
 }
 
 export async function moveStoreKpi(
@@ -302,7 +337,7 @@ function buildSubPayload(
 export async function createStoreKpiSub(
   siglaInput: string,
   kpiId: string,
-  input: StoreKpiSubInput,
+  input: StoreKpiSubInput & { id?: string },
 ): Promise<StoreKpiSub> {
   const sigla = assertLojaSigla(siglaInput)
   if (input.nome.trim().length < 2) throw new Error('Nome do sub deve ter pelo menos 2 caracteres.')
@@ -315,7 +350,7 @@ export async function createStoreKpiSub(
         .map(([id, raw]) => mapSub(id, raw))
         .filter((item): item is StoreKpiSub => item != null)
     : []
-  const id = newId('s')
+  const id = input.id?.trim() || newId('s')
   const sub = buildSubPayload(
     id,
     input,
@@ -342,6 +377,21 @@ export async function updateStoreKpiSub(
   const sub = buildSubPayload(subId, input, current, input.ordem ?? current.ordem)
   await set(ref(database, path), sub)
   return sub
+}
+
+export async function upsertStoreKpiSub(
+  siglaInput: string,
+  kpiId: string,
+  subId: string,
+  input: StoreKpiSubInput & { ordem?: number },
+): Promise<StoreKpiSub> {
+  const sigla = assertLojaSigla(siglaInput)
+  const path = storeKpiSubPath(sigla, kpiId, subId)
+  const snap = await get(ref(database, path))
+  if (!snap.exists()) {
+    return createStoreKpiSub(sigla, kpiId, { ...input, id: subId })
+  }
+  return updateStoreKpiSub(sigla, kpiId, subId, input)
 }
 
 export async function deleteStoreKpiSub(
