@@ -276,6 +276,16 @@ export function formatPct(value: number | null): string {
   return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
 }
 
+/** Semáforo familiar: vermelho / amarelo / verde. */
+export type ProjTone = 'bad' | 'warn' | 'good' | 'empty'
+
+export function projTone(value: number | null): ProjTone {
+  if (value == null || !Number.isFinite(value)) return 'empty'
+  if (value < 85) return 'bad'
+  if (value < 100) return 'warn'
+  return 'good'
+}
+
 export function recentMonthKeys(count = 6, timeZone = APP_TIMEZONE): string[] {
   const now = getZonedNow(timeZone)
   const keys: string[] = []

@@ -6,6 +6,7 @@ import {
   cellForSub,
   formatMatrixNumber,
   formatPct,
+  projTone,
   recentMonthKeys,
   subscribeMonthCheckTotals,
   subscribeMonthMetasTree,
@@ -32,6 +33,7 @@ type StoreMatrixData = {
 }
 
 type LayoutMode = 'lado' | 'baixo'
+type SortMetric = 'az' | 'meta' | 'real' | 'proj'
 
 type EditorTarget =
   | { mode: 'one'; sigla: string }
@@ -39,10 +41,11 @@ type EditorTarget =
 
 function CellStack({ cell }: { cell: MatrixCellView }) {
   if (cell.kind === 'conversao') {
+    const tone = projTone(cell.conversaoPct)
     return (
       <div className="matriz-cell matriz-cell--conversao">
         <span className="matriz-cell-label">Conv.</span>
-        <strong>{formatPct(cell.conversaoPct)}</strong>
+        <strong className={`matriz-proj is-${tone}`}>{formatPct(cell.conversaoPct)}</strong>
       </div>
     )
   }
@@ -60,6 +63,7 @@ function CellStack({ cell }: { cell: MatrixCellView }) {
       </div>
     )
   }
+  const tone = projTone(cell.projPct)
   return (
     <div className="matriz-cell matriz-cell--volume">
       <div className="matriz-metric">
@@ -74,7 +78,7 @@ function CellStack({ cell }: { cell: MatrixCellView }) {
       </div>
       <div className="matriz-metric">
         <span className="matriz-cell-label">Proj%</span>
-        <strong>{formatPct(cell.projPct)}</strong>
+        <strong className={`matriz-proj is-${tone}`}>{formatPct(cell.projPct)}</strong>
       </div>
     </div>
   )
@@ -92,12 +96,73 @@ export function MatrizTab({ stores }: Props) {
   const [metaDrafts, setMetaDrafts] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  /** null = todas; Set = subset visível (flags/cards). */
+  const [storeFilter, setStoreFilter] = useState<Set<string> | null>(null)
+  const [sortMetric, setSortMetric] = useState<SortMetric>('az')
+  const [sortKpiId, setSortKpiId] = useState('')
 
   const activeStores = useMemo(
     () => stores.filter((s) => s.active !== false),
     [stores],
   )
   const catalogSigla = activeStores[0]?.code ?? stores[0]?.code ?? ''
+
+  useEffect(() => {
+    if (!sortKpiId && columns[0]?.id) setSortKpiId(columns[0].id)
+  }, [columns, sortKpiId])
+
+  const visibleStores = useMemo(() => {
+    const filtered =
+      storeFilter == null
+        ? [...activeStores]
+        : activeStores.filter((s) => storeFilter.has(s.code))
+
+    const sortKpi = columns.find((k) => k.id === sortKpiId) ?? columns[0]
+    if (sortMetric === 'az' || !sortKpi) {
+      return filtered.sort((a, b) => a.code.localeCompare(b.code, 'pt-BR'))
+    }
+
+    const metricOf = (sigla: string): number => {
+      const data = byStore[sigla] ?? { metas: {}, checks: {}, overrides: {} }
+      const cell = cellForKpi({
+        kpi: sortKpi,
+        monthKey,
+        metas: data.metas,
+        checks: data.checks,
+        overrides: data.overrides,
+      })
+      if (sortMetric === 'meta') return cell.meta ?? -Infinity
+      if (sortMetric === 'real') return cell.real ?? -Infinity
+      return cell.projPct ?? cell.conversaoPct ?? -Infinity
+    }
+
+    return filtered.sort((a, b) => {
+      const diff = metricOf(b.code) - metricOf(a.code)
+      if (diff !== 0) return diff
+      return a.code.localeCompare(b.code, 'pt-BR')
+    })
+  }, [activeStores, storeFilter, sortMetric, sortKpiId, columns, byStore, monthKey])
+
+  const allSelected = storeFilter == null
+  const toggleStoreFlag = (code: string) => {
+    setStoreFilter((prev) => {
+      if (prev == null) {
+        // saiu de "todas" → fica só esta
+        return new Set([code])
+      }
+      const next = new Set(prev)
+      if (next.has(code)) {
+        next.delete(code)
+        if (next.size === 0) return null
+        return next
+      }
+      next.add(code)
+      if (next.size >= activeStores.length) return null
+      return next
+    })
+  }
+  const selectAllStores = () => setStoreFilter(null)
+  const selectOnlyStore = (code: string) => setStoreFilter(new Set([code]))
 
   useEffect(() => {
     if (!catalogSigla) {
@@ -213,7 +278,9 @@ export function MatrizTab({ stores }: Props) {
   const saveEditor = async () => {
     if (!editor) return
     const targets =
-      editor.mode === 'all' ? activeStores.map((s) => s.code) : [editor.sigla]
+      editor.mode === 'all'
+        ? (storeFilter == null ? activeStores : visibleStores).map((s) => s.code)
+        : [editor.sigla]
     setBusy(true)
     setMessage(null)
     try {
@@ -335,6 +402,34 @@ export function MatrizTab({ stores }: Props) {
   return (
     <div className="painel-tab">
       <section className="painel-panel matriz-toolbar">
+        <div className="matriz-store-flags" role="group" aria-label="Lojas">
+          <button
+            type="button"
+            className={`matriz-store-flag ${allSelected ? 'is-on' : ''}`}
+            onClick={selectAllStores}
+          >
+            <span className="matriz-store-flag-dot" aria-hidden />
+            TODOS
+          </button>
+          {activeStores.map((store) => {
+            const on = allSelected || !!storeFilter?.has(store.code)
+            const only = storeFilter?.size === 1 && storeFilter.has(store.code)
+            return (
+              <button
+                key={store.code}
+                type="button"
+                className={`matriz-store-flag ${on ? 'is-on' : ''} ${only ? 'is-solo' : ''}`}
+                onClick={() => toggleStoreFlag(store.code)}
+                onDoubleClick={() => selectOnlyStore(store.code)}
+                title="Clique: incluir/excluir · Duplo clique: só esta"
+              >
+                <span className="matriz-store-flag-dot" aria-hidden />
+                {store.code}
+              </button>
+            )
+          })}
+        </div>
+
         <div className="matriz-toolbar-row">
           <ThemeSelect
             label="Mês"
@@ -342,6 +437,25 @@ export function MatrizTab({ stores }: Props) {
             onChange={setMonthKey}
             options={monthOptions.map((key) => ({ value: key, label: key }))}
           />
+          <ThemeSelect
+            label="Ordenar por"
+            value={sortMetric}
+            onChange={(v) => setSortMetric(v as SortMetric)}
+            options={[
+              { value: 'az', label: 'Loja A–Z' },
+              { value: 'meta', label: 'Meta (maior → menor)' },
+              { value: 'real', label: 'Real (maior → menor)' },
+              { value: 'proj', label: 'Proj% (maior → menor)' },
+            ]}
+          />
+          {sortMetric !== 'az' && (
+            <ThemeSelect
+              label="KPI da ordenação"
+              value={sortKpiId || columns[0]?.id || ''}
+              onChange={setSortKpiId}
+              options={columns.map((k) => ({ value: k.id, label: k.nome }))}
+            />
+          )}
           <div className="matriz-layout-toggle" role="group" aria-label="Orientação da matriz">
             <span className="ui-field-label">Tab</span>
             <div className="matriz-layout-btns">
@@ -366,15 +480,19 @@ export function MatrizTab({ stores }: Props) {
           <button
             type="button"
             className="painel-btn painel-btn--primary"
-            disabled={activeStores.length === 0 || columns.length === 0}
+            disabled={visibleStores.length === 0 || columns.length === 0}
             onClick={() =>
               openEditor({
-                mode: 'all',
-                sigla: activeStores[0]?.code ?? catalogSigla,
+                mode: visibleStores.length > 1 ? 'all' : 'one',
+                sigla: visibleStores[0]?.code ?? catalogSigla,
               })
             }
           >
-            Atualizar todas
+            {allSelected
+              ? 'Atualizar todas'
+              : visibleStores.length > 1
+                ? `Atualizar (${visibleStores.length})`
+                : `Atualizar ${visibleStores[0]?.code ?? ''}`}
           </button>
         </div>
         {message && <p className="painel-toast">{message}</p>}
@@ -386,7 +504,7 @@ export function MatrizTab({ stores }: Props) {
         </section>
       ) : layout === 'baixo' ? (
         <div className="matriz-stack">
-          {activeStores.map((store) => (
+          {visibleStores.map((store) => (
             <section key={store.code} className="painel-panel matriz-store-card">
               <div className="matriz-store-card-head">
                 <button
@@ -442,7 +560,7 @@ export function MatrizTab({ stores }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {activeStores.map((store) => {
+                {visibleStores.map((store) => {
                   const data = byStore[store.code] ?? {
                     metas: {},
                     checks: {},
@@ -518,7 +636,7 @@ export function MatrizTab({ stores }: Props) {
                 <p className="painel-eyebrow">Resultados · {monthKey}</p>
                 <h3>
                   {editor.mode === 'all'
-                    ? `Atualizar todas (${activeStores.length})`
+                    ? `Atualizar ${storeFilter == null ? activeStores.length : visibleStores.length} loja(s)`
                     : editor.sigla}
                 </h3>
               </div>
