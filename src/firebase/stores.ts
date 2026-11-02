@@ -8,6 +8,7 @@ import {
   siglasIndexPath,
   storeMetaPath,
   storeRootPath,
+  storesIndexPath,
 } from './paths'
 import { provisionStoreAuth } from './storeAuth'
 import type { StoreMeta } from './types'
@@ -42,7 +43,111 @@ function storesEqual(a: StoreMeta[], b: StoreMeta[]): boolean {
   })
 }
 
+export type StoreDataSummary = {
+  kpiCount: number
+  metaMonths: string[]
+  resultMonths: string[]
+  checkMonths: string[]
+}
+
+export type StoreUpsertResult = {
+  store: StoreMeta
+  /** true = sigla já existia; índice/senha reparados sem apagar KPIs/metas/results. */
+  recovered: boolean
+  summary: StoreDataSummary
+}
+
+function emptySummary(): StoreDataSummary {
+  return { kpiCount: 0, metaMonths: [], resultMonths: [], checkMonths: [] }
+}
+
+function monthKeysOf(node: unknown): string[] {
+  if (!node || typeof node !== 'object') return []
+  return Object.keys(node as Record<string, unknown>)
+    .filter((key) => /^\d{4}-\d{2}$/.test(key))
+    .sort()
+}
+
+/** Inventário leve do que a sigla ainda tem no RTDB (não apaga nada). */
+export async function inspectStoreData(siglaInput: string): Promise<StoreDataSummary> {
+  const sigla = assertLojaSigla(siglaInput)
+  const snap = await get(ref(database, storeRootPath(sigla)))
+  if (!snap.exists()) return emptySummary()
+  const tree = snap.val() as {
+    kpis?: Record<string, unknown>
+    metas?: Record<string, unknown>
+    results?: Record<string, unknown>
+    managerChecks?: Record<string, unknown>
+  }
+  return {
+    kpiCount: tree.kpis ? Object.keys(tree.kpis).length : 0,
+    metaMonths: monthKeysOf(tree.metas),
+    resultMonths: monthKeysOf(tree.results),
+    checkMonths: monthKeysOf(tree.managerChecks),
+  }
+}
+
+async function ensureSiglaIndex(code: string, createdAt?: string): Promise<boolean> {
+  const indexRef = ref(database, siglaIndexPath(code))
+  const snap = await get(indexRef)
+  if (snap.exists()) return false
+  await set(indexRef, {
+    code,
+    createdAt: createdAt ?? nowIso(),
+    recoveredAt: nowIso(),
+  })
+  return true
+}
+
+/**
+ * Varredura pontual de `stores/` (get, não listener contínuo) para achar lojas
+ * com meta válida que sumiram do índice auxiliar.
+ */
+export async function discoverStoreCodesFromTree(): Promise<string[]> {
+  const snap = await get(ref(database, storesIndexPath()))
+  if (!snap.exists()) return []
+  const tree = snap.val() as Record<string, { meta?: StoreMeta } | null>
+  return Object.entries(tree)
+    .filter(([, node]) => Boolean(node?.meta?.passwordHash))
+    .map(([code]) => code.toUpperCase())
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+/**
+ * Reatacha no índice toda loja que ainda tem `stores/{SIGLA}/meta`.
+ * Não mexe em kpis / metas / results / managerChecks.
+ */
+export async function reconcileStoreIndex(): Promise<{
+  codes: string[]
+  repaired: string[]
+}> {
+  const [indexSnap, treeCodes] = await Promise.all([
+    get(ref(database, siglasIndexPath())),
+    discoverStoreCodesFromTree(),
+  ])
+  const indexed = new Set(
+    indexSnap.exists()
+      ? Object.keys(indexSnap.val() as Record<string, unknown>).map((c) => c.toUpperCase())
+      : [],
+  )
+  const repaired: string[] = []
+  for (const code of treeCodes) {
+    if (indexed.has(code)) continue
+    const metaSnap = await get(ref(database, storeMetaPath(code)))
+    const createdAt = metaSnap.exists()
+      ? ((metaSnap.val() as StoreMeta).createdAt ?? nowIso())
+      : nowIso()
+    const didRepair = await ensureSiglaIndex(code, createdAt)
+    if (didRepair) repaired.push(code)
+  }
+  const codes = [...new Set([...indexed, ...treeCodes])].sort((a, b) =>
+    a.localeCompare(b, 'pt-BR'),
+  )
+  return { codes, repaired }
+}
+
 export async function listStores(): Promise<StoreMeta[]> {
+  await reconcileStoreIndex()
   const indexSnap = await get(ref(database, siglasIndexPath()))
   if (!indexSnap.exists()) return []
   const codes = Object.keys(indexSnap.val() as Record<string, unknown>)
@@ -62,20 +167,42 @@ export async function listStores(): Promise<StoreMeta[]> {
 }
 
 /**
- * Escuta só o índice de siglas + meta de cada loja.
- * Não escuta `stores/` inteiro — senão cada gravação de metas/results
- * reemite a lista e remonta a matriz (apagando a outra visão).
+ * Escuta índice + meta de cada loja (não o tree `stores/` contínuo).
+ * No mount, reconcilia órfãs uma vez via get pontual.
  */
 export function subscribeStores(callback: (stores: StoreMeta[]) => void): Unsubscribe {
   const metaUnsubs = new Map<string, Unsubscribe>()
   const latest = new Map<string, StoreMeta>()
   let lastEmitted: StoreMeta[] = []
+  let cancelled = false
 
   const emit = () => {
     const next = [...latest.values()].sort((a, b) => a.code.localeCompare(b.code, 'pt-BR'))
     if (storesEqual(lastEmitted, next)) return
     lastEmitted = next
     callback(next)
+  }
+
+  const syncMetaListener = (code: string) => {
+    if (metaUnsubs.has(code)) return
+    metaUnsubs.set(
+      code,
+      onValue(ref(database, storeMetaPath(code)), (metaSnap) => {
+        if (!metaSnap.exists()) {
+          latest.delete(code)
+          emit()
+          return
+        }
+        const meta = metaSnap.val() as StoreMeta
+        if (!meta?.passwordHash) {
+          latest.delete(code)
+          emit()
+          return
+        }
+        latest.set(code, mapStore(code, meta))
+        emit()
+      }),
+    )
   }
 
   const unsubIndex = onValue(ref(database, siglasIndexPath()), (snap) => {
@@ -91,32 +218,21 @@ export function subscribeStores(callback: (stores: StoreMeta[]) => void): Unsubs
       latest.delete(code)
     }
 
-    for (const code of codeSet) {
-      if (metaUnsubs.has(code)) continue
-      metaUnsubs.set(
-        code,
-        onValue(ref(database, storeMetaPath(code)), (metaSnap) => {
-          if (!metaSnap.exists()) {
-            latest.delete(code)
-            emit()
-            return
-          }
-          const meta = metaSnap.val() as StoreMeta
-          if (!meta?.passwordHash) {
-            latest.delete(code)
-            emit()
-            return
-          }
-          latest.set(code, mapStore(code, meta))
-          emit()
-        }),
-      )
-    }
-
+    for (const code of codeSet) syncMetaListener(code)
     emit()
   })
 
+  void (async () => {
+    try {
+      await reconcileStoreIndex()
+    } catch {
+      // Índice auxiliar pode falhar pontualmente; listener do índice segue.
+    }
+    if (cancelled) return
+  })()
+
   return () => {
+    cancelled = true
     unsubIndex()
     for (const unsub of metaUnsubs.values()) unsub()
     metaUnsubs.clear()
@@ -124,7 +240,14 @@ export function subscribeStores(callback: (stores: StoreMeta[]) => void): Unsubs
   }
 }
 
-export async function createStore(siglaInput: string, password: string): Promise<StoreMeta> {
+/**
+ * Cria loja nova OU recupera sigla órfã (meta/dados no RTDB sem índice).
+ * Nunca apaga kpis / metas / results / managerChecks ao recuperar.
+ */
+export async function createStore(
+  siglaInput: string,
+  password: string,
+): Promise<StoreUpsertResult> {
   const code = assertLojaSigla(siglaInput)
   const strength = isStrongEnoughPassword(password)
   if (strength) throw new Error(strength)
@@ -133,8 +256,34 @@ export async function createStore(siglaInput: string, password: string): Promise
     get(ref(database, storeMetaPath(code))),
     get(ref(database, siglaIndexPath(code))),
   ])
-  if (existingMeta.exists() || existingIndex.exists()) {
-    throw new Error(`A sigla ${code} já está em uso. Cada loja precisa de sigla única.`)
+
+  if (existingMeta.exists()) {
+    const current = existingMeta.val() as StoreMeta
+    const authEmail = await provisionStoreAuth(code, password)
+    const next: StoreMeta = {
+      ...current,
+      code,
+      passwordHash: await hashPassword(password),
+      active: true,
+      updatedAt: nowIso(),
+      authEmail,
+      createdAt: current.createdAt ?? nowIso(),
+    }
+    await update(ref(database), {
+      [storeMetaPath(code)]: next,
+      [siglaIndexPath(code)]: {
+        code,
+        createdAt: next.createdAt,
+        recoveredAt: nowIso(),
+      },
+    })
+    const summary = await inspectStoreData(code)
+    return { store: next, recovered: true, summary }
+  }
+
+  // Índice órfão sem meta: remove só o ponteiro e cria do zero.
+  if (existingIndex.exists()) {
+    await remove(ref(database, siglaIndexPath(code)))
   }
 
   const authEmail = await provisionStoreAuth(code, password)
@@ -155,7 +304,9 @@ export async function createStore(siglaInput: string, password: string): Promise
       createdAt: meta.createdAt,
     },
   })
-  return meta
+
+  const summary = await inspectStoreData(code)
+  return { store: meta, recovered: false, summary }
 }
 
 export async function updateStorePassword(siglaInput: string, password: string): Promise<void> {
@@ -178,6 +329,7 @@ export async function updateStorePassword(siglaInput: string, password: string):
     authEmail,
   }
   await set(metaRef, next)
+  await ensureSiglaIndex(code, next.createdAt)
 }
 
 export async function deleteStore(siglaInput: string): Promise<void> {
@@ -192,4 +344,27 @@ export async function deleteStore(siglaInput: string): Promise<void> {
 /** Remove só se não houver uso — helper para limpeza. */
 export async function removeStoreNode(siglaInput: string): Promise<void> {
   await remove(ref(database, storeRootPath(assertLojaSigla(siglaInput))))
+}
+
+export function formatStoreSummary(summary: StoreDataSummary): string {
+  const parts: string[] = []
+  parts.push(`${summary.kpiCount} KPI(s)`)
+  if (summary.metaMonths.length > 0) {
+    parts.push(`metas em ${summary.metaMonths.join(', ')}`)
+  }
+  if (summary.resultMonths.length > 0) {
+    parts.push(`reais em ${summary.resultMonths.join(', ')}`)
+  }
+  if (summary.checkMonths.length > 0) {
+    parts.push(`checks em ${summary.checkMonths.join(', ')}`)
+  }
+  if (
+    summary.kpiCount === 0 &&
+    summary.metaMonths.length === 0 &&
+    summary.resultMonths.length === 0 &&
+    summary.checkMonths.length === 0
+  ) {
+    return 'sem dados históricos'
+  }
+  return parts.join(' · ')
 }
