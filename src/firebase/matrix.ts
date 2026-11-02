@@ -178,6 +178,39 @@ export function describeProjPct(
   return `Proj% = (Real ÷ ${daysElapsed}d × ${dim}d) ÷ Meta × 100 → (${real} ÷ ${daysElapsed} × ${dim}) ÷ ${meta} = ${projectedLabel} ÷ ${meta} = ${pctLabel}%`
 }
 
+/**
+ * Quanto falta no Real (absoluto) até o fim do mês para fechar em `pct` da Meta.
+ * Ex.: p/100% → Meta − Real; p/85% → Meta×0,85 − Real.
+ * Negativo = já passou do alvo.
+ */
+export function remainingToHitMetaPct(
+  meta: number | null,
+  real: number | null,
+  pct: number,
+): number | null {
+  if (meta == null || !Number.isFinite(meta) || meta <= 0) return null
+  if (!Number.isFinite(pct) || pct <= 0) return null
+  const done = real != null && Number.isFinite(real) ? real : 0
+  return meta * (pct / 100) - done
+}
+
+export function describeRemainingToHit(
+  meta: number | null,
+  real: number | null,
+  pct: number,
+): string | null {
+  const gap = remainingToHitMetaPct(meta, real, pct)
+  if (gap == null || meta == null) return null
+  const target = meta * (pct / 100)
+  const done = real != null && Number.isFinite(real) ? real : 0
+  const targetLabel = target.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  const gapLabel = gap.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  if (gap <= 0) {
+    return `Já no ritmo de ${pct}% da meta (alvo ${targetLabel}; Real ${done}). Folga ${gapLabel}.`
+  }
+  return `Faltam ${gapLabel} no Real até o fim do mês para fechar em ${pct}% da meta (alvo ${targetLabel}).`
+}
+
 function resolveOperandReal(
   formula: ConversionFormula,
   side: 'numerator' | 'denominator',

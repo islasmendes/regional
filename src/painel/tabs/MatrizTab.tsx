@@ -5,11 +5,13 @@ import {
   cellForKpi,
   cellForSub,
   describeProjPct,
+  describeRemainingToHit,
   formatMatrixNumber,
   formatMonthPaceLabel,
   formatPct,
   projTone,
   recentMonthKeys,
+  remainingToHitMetaPct,
   subscribeMonthCheckTotals,
   subscribeMonthMetasTree,
   subscribeMonthResults,
@@ -80,14 +82,29 @@ function formatAlvoValue(value: number | null, unidade: AlvoUnidade | null | und
   return formatMatrixNumber(value)
 }
 
+function ritmoTone(gap: number | null): 'good' | 'warn' | 'bad' | 'empty' {
+  if (gap == null || !Number.isFinite(gap)) return 'empty'
+  if (gap <= 0) return 'good'
+  return 'warn'
+}
+
+function formatRitmoGap(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—'
+  const digits = Math.abs(value % 1) < 1e-9 ? 0 : 1
+  return formatMatrixNumber(value, digits)
+}
+
 function CellStack({
   cell,
   alvoUnidade,
   monthKey,
+  showRitmoTargets = false,
 }: {
   cell: MatrixCellView
   alvoUnidade?: AlvoUnidade | null
   monthKey: string
+  /** Só KPI-mãe Volume (Meta · Real · Proj%). */
+  showRitmoTargets?: boolean
 }) {
   if (cell.kind === 'conversao') {
     const tone = projTone(cell.conversaoPct)
@@ -124,8 +141,11 @@ function CellStack({
   }
   const tone = projTone(cell.projPct)
   const projTitle = describeProjPct(cell.meta, cell.real, monthKey) ?? undefined
+  const withRitmo = showRitmoTargets && cell.kind === 'volume'
+  const gap100 = withRitmo ? remainingToHitMetaPct(cell.meta, cell.real, 100) : null
+  const gap85 = withRitmo ? remainingToHitMetaPct(cell.meta, cell.real, 85) : null
   return (
-    <div className="matriz-cell matriz-cell--volume">
+    <div className={`matriz-cell matriz-cell--volume ${withRitmo ? 'matriz-cell--ritmo' : ''}`}>
       <div className="matriz-metric">
         <span className="matriz-cell-label">Meta</span>
         <strong className="matriz-meta-value">{formatMatrixNumber(cell.meta)}</strong>
@@ -143,6 +163,28 @@ function CellStack({
         <span className="matriz-cell-label">Proj%</span>
         <strong className={`matriz-proj is-${tone}`}>{formatPct(cell.projPct)}</strong>
       </div>
+      {withRitmo && (
+        <>
+          <div
+            className="matriz-metric"
+            title={describeRemainingToHit(cell.meta, cell.real, 100) ?? undefined}
+          >
+            <span className="matriz-cell-label">p/100%</span>
+            <strong className={`matriz-ritmo is-${ritmoTone(gap100)}`}>
+              {formatRitmoGap(gap100)}
+            </strong>
+          </div>
+          <div
+            className="matriz-metric"
+            title={describeRemainingToHit(cell.meta, cell.real, 85) ?? undefined}
+          >
+            <span className="matriz-cell-label">p/85%</span>
+            <strong className={`matriz-ritmo is-${ritmoTone(gap85)}`}>
+              {formatRitmoGap(gap85)}
+            </strong>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -959,6 +1001,7 @@ export function MatrizTab({ stores }: Props) {
                               cell={cell}
                               alvoUnidade={kpi.alvoUnidade}
                               monthKey={monthKey}
+                              showRitmoTargets={kpi.kind === 'volume'}
                             />
                             {open && subs.length > 0 && (
                               <div className="matriz-sub-cells">

@@ -1305,8 +1305,28 @@
   grid-template-columns: repeat(3, minmax(2.8rem, 1fr));
 }
 
+.matriz-cell--volume.matriz-cell--ritmo {
+  grid-template-columns: repeat(5, minmax(2.55rem, 1fr));
+}
+
 .matriz-cell--alvo {
   grid-template-columns: repeat(2, minmax(2.8rem, 1fr));
+}
+
+.matriz-ritmo.is-good {
+  color: #4ade80 !important;
+}
+
+.matriz-ritmo.is-warn {
+  color: #fde68a !important;
+}
+
+.matriz-ritmo.is-bad {
+  color: #f87171 !important;
+}
+
+.matriz-ritmo.is-empty {
+  color: #64748b !important;
 }
 
 .matriz-cell--conversao {
