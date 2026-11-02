@@ -156,7 +156,10 @@ export function MatrizTab({ stores }: Props) {
   const [monthKey, setMonthKey] = useState(() => currentMonthKey())
   const [columns, setColumns] = useState<StoreKpi[]>([])
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [byStore, setByStore] = useState<Record<string, StoreMatrixData>>({})
+  /** Visões isoladas: um listener/escrita nunca apaga a outra. */
+  const [metasByStore, setMetasByStore] = useState<Record<string, MatrixMetaTree>>({})
+  const [checksByStore, setChecksByStore] = useState<Record<string, MonthCheckTotals>>({})
+  const [resultsByStore, setResultsByStore] = useState<Record<string, MonthResultOverride>>({})
   const [editor, setEditor] = useState<EditorTarget | null>(null)
   const [tabNav, setTabNav] = useState<TabNavMode>('lado')
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -174,6 +177,16 @@ export function MatrizTab({ stores }: Props) {
     () => stores.filter((s) => s.active !== false),
     [stores],
   )
+  /** Chave estável — evita remount quando a lista de lojas só muda de referência. */
+  const storeCodesKey = useMemo(
+    () => activeStores.map((store) => store.code).join('|'),
+    [activeStores],
+  )
+  const storeData = (sigla: string): StoreMatrixData => ({
+    metas: metasByStore[sigla] ?? {},
+    checks: checksByStore[sigla] ?? {},
+    overrides: resultsByStore[sigla] ?? {},
+  })
   const catalogSigla = activeStores[0]?.code ?? stores[0]?.code ?? ''
 
   const editableColumns = useMemo(
@@ -197,13 +210,12 @@ export function MatrizTab({ stores }: Props) {
     }
 
     const metricOf = (sigla: string): number => {
-      const data = byStore[sigla] ?? { metas: {}, checks: {}, overrides: {} }
       const cell = cellForKpi({
         kpi: sortKpi,
         monthKey,
-        metas: data.metas,
-        checks: data.checks,
-        overrides: data.overrides,
+        metas: metasByStore[sigla] ?? {},
+        checks: checksByStore[sigla] ?? {},
+        overrides: resultsByStore[sigla] ?? {},
       })
       if (sortMetric === 'meta') return cell.meta ?? -Infinity
       if (sortMetric === 'real') return cell.real ?? -Infinity
@@ -215,7 +227,17 @@ export function MatrizTab({ stores }: Props) {
       if (diff !== 0) return diff
       return a.code.localeCompare(b.code, 'pt-BR')
     })
-  }, [activeStores, storeFilter, sortMetric, sortKpiId, columns, byStore, monthKey])
+  }, [
+    activeStores,
+    storeFilter,
+    sortMetric,
+    sortKpiId,
+    columns,
+    metasByStore,
+    checksByStore,
+    resultsByStore,
+    monthKey,
+  ])
 
   const bulkTargetStores = useMemo(
     () => (storeFilter == null ? activeStores : visibleStores),
@@ -413,50 +435,35 @@ export function MatrizTab({ stores }: Props) {
   }, [activeStores, catalogSigla, columns.length])
 
   useEffect(() => {
-    if (activeStores.length === 0) {
-      setByStore({})
-      return
-    }
-    const local: Record<string, StoreMatrixData> = {}
-    const unsubs: Array<() => void> = []
+    const codes = storeCodesKey ? storeCodesKey.split('|').filter(Boolean) : []
+    setMetasByStore({})
+    setChecksByStore({})
+    setResultsByStore({})
+    if (codes.length === 0) return
 
-    for (const store of activeStores) {
-      local[store.code] = { metas: {}, checks: {}, overrides: {} }
-      const code = store.code
+    const unsubs: Array<() => void> = []
+    for (const code of codes) {
       unsubs.push(
         subscribeMonthMetasTree(code, monthKey, (metas) => {
-          setByStore((prev) => ({
-            ...prev,
-            [code]: { ...(prev[code] ?? { metas: {}, checks: {}, overrides: {} }), metas },
-          }))
+          setMetasByStore((prev) => ({ ...prev, [code]: metas }))
         }),
       )
       unsubs.push(
         subscribeMonthCheckTotals(code, monthKey, (checks) => {
-          setByStore((prev) => ({
-            ...prev,
-            [code]: { ...(prev[code] ?? { metas: {}, checks: {}, overrides: {} }), checks },
-          }))
+          setChecksByStore((prev) => ({ ...prev, [code]: checks }))
         }),
       )
       unsubs.push(
         subscribeMonthResults(code, monthKey, (overrides) => {
-          setByStore((prev) => ({
-            ...prev,
-            [code]: {
-              ...(prev[code] ?? { metas: {}, checks: {}, overrides: {} }),
-              overrides,
-            },
-          }))
+          setResultsByStore((prev) => ({ ...prev, [code]: overrides }))
         }),
       )
     }
 
-    setByStore(local)
     return () => {
-      for (const u of unsubs) u()
+      for (const unsub of unsubs) unsub()
     }
-  }, [activeStores, monthKey])
+  }, [storeCodesKey, monthKey])
 
   const parseDraftNumber = (raw: string | undefined, label: string): number | null => {
     if (raw == null) return null
@@ -468,7 +475,7 @@ export function MatrizTab({ stores }: Props) {
   }
 
   const openOneEditor = (sigla: string) => {
-    const data = byStore[sigla] ?? { metas: {}, checks: {}, overrides: {} }
+    const data = storeData(sigla)
     const nextDrafts: Record<string, string> = {}
     const nextMetas: Record<string, string> = {}
     for (const kpi of columns) {
@@ -507,7 +514,7 @@ export function MatrizTab({ stores }: Props) {
   const openBulkRealEditor = () => {
     const nextDrafts: Record<string, string> = {}
     for (const store of bulkTargetStores) {
-      const data = byStore[store.code] ?? { metas: {}, checks: {}, overrides: {} }
+      const data = storeData(store.code)
       for (const kpi of columns) {
         if (kpi.kind === 'conversao') continue
         const cell = cellForKpi({
@@ -541,61 +548,58 @@ export function MatrizTab({ stores }: Props) {
     setEditor({ mode: 'bulk' })
   }
 
-  const patchLocalStoreData = (
+  const patchLocalMeta = (
     sigla: string,
-    patch: {
-      meta?: { kpiId: string; subId?: string; valor: number }
-      real?: { kpiId: string; subId?: string; valor: number }
-    },
+    kpiId: string,
+    valor: number,
+    subId?: string,
   ) => {
-    setByStore((prev) => {
-      const current = prev[sigla] ?? { metas: {}, checks: {}, overrides: {} }
-      const metas = { ...current.metas }
-      const overrides = { ...current.overrides }
-
-      if (patch.meta) {
-        const { kpiId, subId, valor } = patch.meta
-        if (subId) {
-          const parent = { ...(metas[kpiId] ?? {}) }
-          const subs = { ...(parent.subs ?? {}) }
-          subs[subId] = {
-            ...(subs[subId] ?? {}),
-            valor,
-            updatedAt: new Date().toISOString(),
-            updatedBy: 'painel',
-          }
-          metas[kpiId] = { ...parent, subs }
-        } else {
-          metas[kpiId] = {
-            ...(metas[kpiId] ?? {}),
-            valor,
-            updatedAt: new Date().toISOString(),
-            updatedBy: 'painel',
-          }
+    setMetasByStore((prev) => {
+      const tree = { ...(prev[sigla] ?? {}) }
+      if (subId) {
+        const parent = { ...(tree[kpiId] ?? {}) }
+        const subs = { ...(parent.subs ?? {}) }
+        subs[subId] = {
+          ...(subs[subId] ?? {}),
+          valor,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'painel',
+        }
+        tree[kpiId] = { ...parent, subs }
+      } else {
+        tree[kpiId] = {
+          ...(tree[kpiId] ?? {}),
+          valor,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'painel',
         }
       }
+      return { ...prev, [sigla]: tree }
+    })
+  }
 
-      if (patch.real) {
-        const { kpiId, subId, valor } = patch.real
-        if (subId) {
-          const parent = { ...(overrides[kpiId] ?? {}) }
-          const subs = { ...(parent.subs ?? {}) }
-          subs[subId] = { ...(subs[subId] ?? {}), valor }
-          overrides[kpiId] = { ...parent, subs }
-        } else {
-          overrides[kpiId] = {
-            ...(overrides[kpiId] ?? {}),
-            valor,
-            updatedAt: new Date().toISOString(),
-            updatedBy: 'painel',
-          }
+  const patchLocalReal = (
+    sigla: string,
+    kpiId: string,
+    valor: number,
+    subId?: string,
+  ) => {
+    setResultsByStore((prev) => {
+      const tree = { ...(prev[sigla] ?? {}) }
+      if (subId) {
+        const parent = { ...(tree[kpiId] ?? {}) }
+        const subs = { ...(parent.subs ?? {}) }
+        subs[subId] = { ...(subs[subId] ?? {}), valor }
+        tree[kpiId] = { ...parent, subs }
+      } else {
+        tree[kpiId] = {
+          ...(tree[kpiId] ?? {}),
+          valor,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'painel',
         }
       }
-
-      return {
-        ...prev,
-        [sigla]: { ...current, metas, overrides },
-      }
+      return { ...prev, [sigla]: tree }
     })
   }
 
@@ -616,7 +620,7 @@ export function MatrizTab({ stores }: Props) {
             )
             if (meta != null) {
               await saveKpiMonthMeta({ sigla, monthKey, kpiId: kpi.id, valor: meta })
-              patchLocalStoreData(sigla, { meta: { kpiId: kpi.id, valor: meta } })
+              patchLocalMeta(sigla, kpi.id, meta)
               wrote += 1
             }
           }
@@ -626,7 +630,7 @@ export function MatrizTab({ stores }: Props) {
           )
           if (real != null) {
             await saveKpiMonthResult({ sigla, monthKey, kpiId: kpi.id, valor: real })
-            patchLocalStoreData(sigla, { real: { kpiId: kpi.id, valor: real } })
+            patchLocalReal(sigla, kpi.id, real)
             wrote += 1
           }
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
@@ -645,9 +649,7 @@ export function MatrizTab({ stores }: Props) {
                   subId: sub.id,
                   valor: meta,
                 })
-                patchLocalStoreData(sigla, {
-                  meta: { kpiId: kpi.id, subId: sub.id, valor: meta },
-                })
+                patchLocalMeta(sigla, kpi.id, meta, sub.id)
                 wrote += 1
               }
             }
@@ -663,9 +665,7 @@ export function MatrizTab({ stores }: Props) {
                 subId: sub.id,
                 valor: subReal,
               })
-              patchLocalStoreData(sigla, {
-                real: { kpiId: kpi.id, subId: sub.id, valor: subReal },
-              })
+              patchLocalReal(sigla, kpi.id, subReal, sub.id)
               wrote += 1
             }
           }
@@ -868,11 +868,7 @@ export function MatrizTab({ stores }: Props) {
               </thead>
               <tbody>
                 {visibleStores.map((store) => {
-                  const data = byStore[store.code] ?? {
-                    metas: {},
-                    checks: {},
-                    overrides: {},
-                  }
+                  const data = storeData(store.code)
                   return (
                     <tr key={store.code}>
                       <th className="matriz-sticky">

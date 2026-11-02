@@ -85,6 +85,10 @@ export function storesIndexPath(): string {
 }
 
 /** Índice auxiliar de unicidade (espelha a existência da loja). */
+export function siglasIndexPath(): string {
+  return 'indexes/siglas'
+}
+
 export function siglaIndexPath(sigla: string): string {
-  return `indexes/siglas/${sigla.toUpperCase()}`
+  return `${siglasIndexPath()}/${sigla.toUpperCase()}`
 }

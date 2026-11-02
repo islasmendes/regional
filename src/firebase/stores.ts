@@ -5,9 +5,9 @@ import { database } from './config'
 import {
   lojaEmail,
   siglaIndexPath,
+  siglasIndexPath,
   storeMetaPath,
   storeRootPath,
-  storesIndexPath,
 } from './paths'
 import { provisionStoreAuth } from './storeAuth'
 import type { StoreMeta } from './types'
@@ -27,37 +27,101 @@ function mapStore(code: string, meta: StoreMeta): StoreMeta {
   }
 }
 
+function storesEqual(a: StoreMeta[], b: StoreMeta[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((store, index) => {
+    const other = b[index]
+    return (
+      other != null &&
+      store.code === other.code &&
+      store.active === other.active &&
+      store.passwordHash === other.passwordHash &&
+      store.updatedAt === other.updatedAt &&
+      store.authEmail === other.authEmail
+    )
+  })
+}
+
 export async function listStores(): Promise<StoreMeta[]> {
-  const snap = await get(ref(database, storesIndexPath()))
-  if (!snap.exists()) return []
-  const tree = snap.val() as Record<string, { meta?: StoreMeta } | null>
-  return Object.entries(tree)
-    .map(([code, node]) => {
-      const meta = node?.meta
+  const indexSnap = await get(ref(database, siglasIndexPath()))
+  if (!indexSnap.exists()) return []
+  const codes = Object.keys(indexSnap.val() as Record<string, unknown>)
+  const stores = await Promise.all(
+    codes.map(async (rawCode) => {
+      const code = rawCode.toUpperCase()
+      const snap = await get(ref(database, storeMetaPath(code)))
+      if (!snap.exists()) return null
+      const meta = snap.val() as StoreMeta
       if (!meta?.passwordHash) return null
       return mapStore(code, meta)
-    })
+    }),
+  )
+  return stores
     .filter((item): item is StoreMeta => item != null)
     .sort((a, b) => a.code.localeCompare(b.code, 'pt-BR'))
 }
 
+/**
+ * Escuta só o índice de siglas + meta de cada loja.
+ * Não escuta `stores/` inteiro — senão cada gravação de metas/results
+ * reemite a lista e remonta a matriz (apagando a outra visão).
+ */
 export function subscribeStores(callback: (stores: StoreMeta[]) => void): Unsubscribe {
-  return onValue(ref(database, storesIndexPath()), (snap) => {
-    if (!snap.exists()) {
-      callback([])
-      return
+  const metaUnsubs = new Map<string, Unsubscribe>()
+  const latest = new Map<string, StoreMeta>()
+  let lastEmitted: StoreMeta[] = []
+
+  const emit = () => {
+    const next = [...latest.values()].sort((a, b) => a.code.localeCompare(b.code, 'pt-BR'))
+    if (storesEqual(lastEmitted, next)) return
+    lastEmitted = next
+    callback(next)
+  }
+
+  const unsubIndex = onValue(ref(database, siglasIndexPath()), (snap) => {
+    const codes = snap.exists()
+      ? Object.keys(snap.val() as Record<string, unknown>).map((code) => code.toUpperCase())
+      : []
+    const codeSet = new Set(codes)
+
+    for (const [code, unsub] of [...metaUnsubs.entries()]) {
+      if (codeSet.has(code)) continue
+      unsub()
+      metaUnsubs.delete(code)
+      latest.delete(code)
     }
-    const tree = snap.val() as Record<string, { meta?: StoreMeta } | null>
-    const stores = Object.entries(tree)
-      .map(([code, node]) => {
-        const meta = node?.meta
-        if (!meta?.passwordHash) return null
-        return mapStore(code, meta)
-      })
-      .filter((item): item is StoreMeta => item != null)
-      .sort((a, b) => a.code.localeCompare(b.code, 'pt-BR'))
-    callback(stores)
+
+    for (const code of codeSet) {
+      if (metaUnsubs.has(code)) continue
+      metaUnsubs.set(
+        code,
+        onValue(ref(database, storeMetaPath(code)), (metaSnap) => {
+          if (!metaSnap.exists()) {
+            latest.delete(code)
+            emit()
+            return
+          }
+          const meta = metaSnap.val() as StoreMeta
+          if (!meta?.passwordHash) {
+            latest.delete(code)
+            emit()
+            return
+          }
+          latest.set(code, mapStore(code, meta))
+          emit()
+        }),
+      )
+    }
+
+    emit()
   })
+
+  return () => {
+    unsubIndex()
+    for (const unsub of metaUnsubs.values()) unsub()
+    metaUnsubs.clear()
+    latest.clear()
+  }
 }
 
 export async function createStore(siglaInput: string, password: string): Promise<StoreMeta> {

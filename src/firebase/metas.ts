@@ -2,7 +2,7 @@ import { onValue, ref, update, type Unsubscribe } from 'firebase/database'
 import { assertLojaSigla } from '../lib/sigla'
 import { getZonedNow } from '../lib/time'
 import { database } from './config'
-import { storeKpiMetaPath, storeMetasMonthPath, storeSubMetaPath } from './paths'
+import { storeMetasMonthPath } from './paths'
 import type { MonthMetaEntry } from './types'
 
 function nowIso(): string {
@@ -29,14 +29,6 @@ export function subscribeMonthMetas(
   })
 }
 
-function metaEntry(valor: number): MonthMetaEntry {
-  return {
-    valor,
-    updatedAt: nowIso(),
-    updatedBy: 'painel',
-  }
-}
-
 function explainFirebaseWriteError(error: unknown, label: string): Error {
   const code =
     error && typeof error === 'object' && 'code' in error
@@ -51,6 +43,7 @@ function explainFirebaseWriteError(error: unknown, label: string): Error {
   return error instanceof Error ? error : new Error(`${label}: ${message}`)
 }
 
+/** Grava só folhas da meta — não toca results nem outras chaves irmãs. */
 export async function saveKpiMonthMeta(params: {
   sigla: string
   monthKey: string
@@ -59,10 +52,17 @@ export async function saveKpiMonthMeta(params: {
 }): Promise<MonthMetaEntry> {
   const sigla = assertLojaSigla(params.sigla)
   if (!Number.isFinite(params.valor)) throw new Error('Meta inválida.')
-  const entry = metaEntry(params.valor)
+  const entry: MonthMetaEntry = {
+    valor: params.valor,
+    updatedAt: nowIso(),
+    updatedBy: 'painel',
+  }
   try {
-    // update mescla e preserva /subs
-    await update(ref(database, storeKpiMetaPath(sigla, params.monthKey, params.kpiId)), entry)
+    await update(ref(database, storeMetasMonthPath(sigla, params.monthKey)), {
+      [`${params.kpiId}/valor`]: entry.valor,
+      [`${params.kpiId}/updatedAt`]: entry.updatedAt,
+      [`${params.kpiId}/updatedBy`]: entry.updatedBy,
+    })
   } catch (error) {
     throw explainFirebaseWriteError(error, `Meta ${params.kpiId}`)
   }
@@ -78,12 +78,17 @@ export async function saveSubMonthMeta(params: {
 }): Promise<MonthMetaEntry> {
   const sigla = assertLojaSigla(params.sigla)
   if (!Number.isFinite(params.valor)) throw new Error('Meta inválida.')
-  const entry = metaEntry(params.valor)
+  const entry: MonthMetaEntry = {
+    valor: params.valor,
+    updatedAt: nowIso(),
+    updatedBy: 'painel',
+  }
   try {
-    await update(
-      ref(database, storeSubMetaPath(sigla, params.monthKey, params.kpiId, params.subId)),
-      entry,
-    )
+    await update(ref(database, storeMetasMonthPath(sigla, params.monthKey)), {
+      [`${params.kpiId}/subs/${params.subId}/valor`]: entry.valor,
+      [`${params.kpiId}/subs/${params.subId}/updatedAt`]: entry.updatedAt,
+      [`${params.kpiId}/subs/${params.subId}/updatedBy`]: entry.updatedBy,
+    })
   } catch (error) {
     throw explainFirebaseWriteError(error, `Meta sub ${params.subId}`)
   }
