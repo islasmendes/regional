@@ -4,7 +4,9 @@ import {
   asFiniteNumber,
   cellForKpi,
   cellForSub,
+  describeProjPct,
   formatMatrixNumber,
+  formatMonthPaceLabel,
   formatPct,
   projTone,
   recentMonthKeys,
@@ -81,9 +83,11 @@ function formatAlvoValue(value: number | null, unidade: AlvoUnidade | null | und
 function CellStack({
   cell,
   alvoUnidade,
+  monthKey,
 }: {
   cell: MatrixCellView
   alvoUnidade?: AlvoUnidade | null
+  monthKey: string
 }) {
   if (cell.kind === 'conversao') {
     const tone = projTone(cell.conversaoPct)
@@ -100,7 +104,7 @@ function CellStack({
         <div className="matriz-cell matriz-cell--alvo matriz-cell--evidencia">
           <div className="matriz-metric">
             <span className="matriz-cell-label">Real</span>
-            <strong>{formatAlvoValue(cell.real, 'absolute')}</strong>
+            <strong className="matriz-real-value">{formatAlvoValue(cell.real, 'absolute')}</strong>
           </div>
         </div>
       )
@@ -113,12 +117,13 @@ function CellStack({
         </div>
         <div className="matriz-metric">
           <span className="matriz-cell-label">Real</span>
-          <strong>{formatAlvoValue(cell.real, alvoUnidade)}</strong>
+          <strong className="matriz-real-value">{formatAlvoValue(cell.real, alvoUnidade)}</strong>
         </div>
       </div>
     )
   }
   const tone = projTone(cell.projPct)
+  const projTitle = describeProjPct(cell.meta, cell.real, monthKey) ?? undefined
   return (
     <div className="matriz-cell matriz-cell--volume">
       <div className="matriz-metric">
@@ -127,11 +132,14 @@ function CellStack({
       </div>
       <div className="matriz-metric">
         <span className="matriz-cell-label">Real</span>
-        <strong className={cell.source === 'override' ? 'is-override' : ''}>
+        <strong
+          className={`matriz-real-value ${cell.source === 'override' ? 'is-override' : ''}`}
+          title={cell.source === 'override' ? 'Real lançado no painel' : 'Real do checkout'}
+        >
           {formatMatrixNumber(cell.real)}
         </strong>
       </div>
-      <div className="matriz-metric">
+      <div className="matriz-metric" title={projTitle}>
         <span className="matriz-cell-label">Proj%</span>
         <strong className={`matriz-proj is-${tone}`}>{formatPct(cell.projPct)}</strong>
       </div>
@@ -779,49 +787,58 @@ export function MatrizTab({ stores }: Props) {
     )
   }
 
+  const paceLabel = formatMonthPaceLabel(monthKey)
+
   return (
     <div className="painel-tab">
-      <section className="painel-panel matriz-toolbar">
-        <div className="matriz-store-flags" role="group" aria-label="Lojas">
-          <button
-            type="button"
-            className={`matriz-store-flag ${allSelected ? 'is-on' : ''}`}
-            onClick={selectAllStores}
-          >
-            <span className="matriz-store-flag-dot" aria-hidden />
-            TODOS
-          </button>
-          {activeStores.map((store) => {
-            const on = allSelected || !!storeFilter?.has(store.code)
-            const only = storeFilter?.size === 1 && storeFilter.has(store.code)
-            return (
-              <button
-                key={store.code}
-                type="button"
-                className={`matriz-store-flag ${on ? 'is-on' : ''} ${only ? 'is-solo' : ''}`}
-                onClick={() => toggleStoreFlag(store.code)}
-                onDoubleClick={() => selectOnlyStore(store.code)}
-                title="Clique: incluir/excluir · Duplo clique: só esta"
-              >
-                <span className="matriz-store-flag-dot" aria-hidden />
-                {store.code}
-              </button>
-            )
-          })}
-        </div>
+      <section className="painel-panel matriz-toolbar matriz-toolbar--slim">
+        <div className="matriz-toolbar-line">
+          <div className="matriz-store-flags" role="group" aria-label="Lojas">
+            <button
+              type="button"
+              className={`matriz-store-flag ${allSelected ? 'is-on' : ''}`}
+              onClick={selectAllStores}
+            >
+              <span className="matriz-store-flag-dot" aria-hidden />
+              TODOS
+            </button>
+            {activeStores.map((store) => {
+              const on = allSelected || !!storeFilter?.has(store.code)
+              const only = storeFilter?.size === 1 && storeFilter.has(store.code)
+              return (
+                <button
+                  key={store.code}
+                  type="button"
+                  className={`matriz-store-flag ${on ? 'is-on' : ''} ${only ? 'is-solo' : ''}`}
+                  onClick={() => toggleStoreFlag(store.code)}
+                  onDoubleClick={() => selectOnlyStore(store.code)}
+                  title="Clique: incluir/excluir · Duplo clique: só esta"
+                >
+                  <span className="matriz-store-flag-dot" aria-hidden />
+                  {store.code}
+                </button>
+              )
+            })}
+          </div>
 
-        <div className="matriz-toolbar-row">
           <ThemeSelect
+            className="matriz-month-select"
             label="Mês"
             value={monthKey}
             onChange={setMonthKey}
             options={monthOptions.map((key) => ({ value: key, label: key }))}
           />
-        </div>
-        <div className="painel-store-actions">
+
+          <span
+            className="matriz-pace-chip"
+            title="Ritmo da Proj%: dias decorridos / dias do mês (America/Sao_Paulo). Proj% = (Real ÷ dias) × mês ÷ Meta × 100."
+          >
+            {paceLabel}
+          </span>
+
           <button
             type="button"
-            className="painel-btn painel-btn--primary"
+            className="painel-btn painel-btn--primary matriz-toolbar-action"
             disabled={bulkTargetStores.length === 0 || columns.length === 0}
             onClick={openBulkRealEditor}
           >
@@ -832,7 +849,7 @@ export function MatrizTab({ stores }: Props) {
                 : `Lançar real · ${bulkTargetStores[0]?.code ?? ''}`}
           </button>
         </div>
-        {message && <p className="painel-toast">{message}</p>}
+        {message && <p className="painel-toast matriz-toolbar-toast">{message}</p>}
       </section>
 
       {columns.length === 0 ? (
@@ -938,7 +955,11 @@ export function MatrizTab({ stores }: Props) {
                         const subs = (kpi.subs ?? []).filter((s) => s.ativo !== false)
                         return (
                           <td key={kpi.id}>
-                            <CellStack cell={cell} alvoUnidade={kpi.alvoUnidade} />
+                            <CellStack
+                              cell={cell}
+                              alvoUnidade={kpi.alvoUnidade}
+                              monthKey={monthKey}
+                            />
                             {open && subs.length > 0 && (
                               <div className="matriz-sub-cells">
                                 {subs.map((sub) => (
@@ -954,6 +975,7 @@ export function MatrizTab({ stores }: Props) {
                                         overrides: data.overrides,
                                       })}
                                       alvoUnidade={sub.alvoUnidade}
+                                      monthKey={monthKey}
                                     />
                                   </div>
                                 ))}
