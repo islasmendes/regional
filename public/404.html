@@ -6,13 +6,13 @@
     <script>
       (function () {
         var base = '/regional/';
-        var path = location.pathname.replace(base, '') + location.search + location.hash;
-        if (!path || path === 'index.html') {
-          sessionStorage.setItem('regional-redirect', 'painel');
-        } else {
+        var path = location.pathname.replace(base, '');
+        path = path.replace(/^\//, '').replace(/\/$/, '');
+        if (!path || path === 'index.html') path = 'painel';
+        try {
           sessionStorage.setItem('regional-redirect', path);
-        }
-        location.replace(base + 'index.html');
+        } catch (e) {}
+        location.replace(base + '?p=' + encodeURIComponent(path));
       })();
     </script>
   </head>
