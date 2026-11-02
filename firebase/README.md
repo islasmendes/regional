@@ -31,10 +31,12 @@ master/ui/tabs          ← ordem/classificação das abas do painel
 indexes/siglas/{SIGLA}  ← unicidade
 stores/{SIGLA}/meta
 stores/{SIGLA}/kpis
+stores/{SIGLA}/metas/{yyyy-MM}/...   ← Meta/Alvo mensal (painel)
 stores/{SIGLA}/config/...
 stores/{SIGLA}/managerChecks/{yyyy-MM}/entries
-stores/{SIGLA}/results/{yyyy-MM}/...
+stores/{SIGLA}/results/{yyyy-MM}/... ← Real override (painel)
 ```
+
 
 ## Importante
 

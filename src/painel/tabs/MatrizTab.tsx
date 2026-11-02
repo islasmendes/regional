@@ -198,30 +198,26 @@ export function MatrizTab({ stores }: Props) {
     [storeFilter, activeStores, visibleStores],
   )
 
+  const editorStores = useMemo(() => {
+    if (!editor) return [] as StoreMeta[]
+    if (editor.mode === 'bulk') return bulkTargetStores
+    return activeStores.filter((s) => s.code === editor.sigla)
+  }, [editor, bulkTargetStores, activeStores])
+
   const editorFields = useMemo((): EditorField[] => {
     if (!editor) return []
-
-    if (editor.mode === 'one') {
-      const fields: EditorField[] = []
-      for (const kpi of editableColumns) {
-        if (needsMonthMeta(kpi.kind)) {
-          fields.push({ fieldId: `meta:${kpi.id}`, kind: 'meta', group: kpi.id })
-        }
-        fields.push({ fieldId: `real:${kpi.id}`, kind: 'real', group: kpi.id })
-        for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
-          const key = `${kpi.id}::${sub.id}`
-          if (needsMonthMeta(sub.kind)) {
-            fields.push({ fieldId: `meta:${key}`, kind: 'meta', group: key })
-          }
-          fields.push({ fieldId: `real:${key}`, kind: 'real', group: key })
-        }
-      }
-      return fields
-    }
-
     const fields: EditorField[] = []
-    for (const store of bulkTargetStores) {
+    for (const store of editorStores) {
       for (const kpi of editableColumns) {
+        if (editor.mode === 'one' && needsMonthMeta(kpi.kind)) {
+          fields.push({
+            fieldId: `meta:${draftKey(store.code, kpi.id)}`,
+            kind: 'meta',
+            group: kpi.id,
+            sigla: store.code,
+            col: kpi.id,
+          })
+        }
         fields.push({
           fieldId: `real:${draftKey(store.code, kpi.id)}`,
           kind: 'real',
@@ -232,6 +228,15 @@ export function MatrizTab({ stores }: Props) {
         if (bulkExpanded[kpi.id]) {
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
             const key = `${kpi.id}::${sub.id}`
+            if (editor.mode === 'one' && needsMonthMeta(sub.kind)) {
+              fields.push({
+                fieldId: `meta:${draftKey(store.code, key)}`,
+                kind: 'meta',
+                group: key,
+                sigla: store.code,
+                col: key,
+              })
+            }
             fields.push({
               fieldId: `real:${draftKey(store.code, key)}`,
               kind: 'real',
@@ -244,31 +249,31 @@ export function MatrizTab({ stores }: Props) {
       }
     }
     return fields
-  }, [editor, editableColumns, bulkTargetStores, bulkExpanded])
+  }, [editor, editorStores, editableColumns, bulkExpanded])
 
   const editorTabOrder = useMemo(() => {
-    if (editor?.mode === 'one') {
-      if (tabNav === 'lado') return editorFields.map((f) => f.fieldId)
-      const metas = editorFields.filter((f) => f.kind === 'meta').map((f) => f.fieldId)
-      const reals = editorFields.filter((f) => f.kind === 'real').map((f) => f.fieldId)
-      return [...metas, ...reals]
-    }
-
     if (tabNav === 'lado') return editorFields.map((f) => f.fieldId)
 
     const byCol = new Map<string, string[]>()
     for (const field of editorFields) {
-      const col = field.col ?? field.group
+      const col = `${field.kind}:${field.col ?? field.group}`
       const list = byCol.get(col) ?? []
       list.push(field.fieldId)
       byCol.set(col, list)
     }
     const ordered: string[] = []
     for (const kpi of editableColumns) {
-      ordered.push(...(byCol.get(kpi.id) ?? []))
+      if (editor?.mode === 'one' && needsMonthMeta(kpi.kind)) {
+        ordered.push(...(byCol.get(`meta:${kpi.id}`) ?? []))
+      }
+      ordered.push(...(byCol.get(`real:${kpi.id}`) ?? []))
       if (bulkExpanded[kpi.id]) {
         for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
-          ordered.push(...(byCol.get(`${kpi.id}::${sub.id}`) ?? []))
+          const key = `${kpi.id}::${sub.id}`
+          if (editor?.mode === 'one' && needsMonthMeta(sub.kind)) {
+            ordered.push(...(byCol.get(`meta:${key}`) ?? []))
+          }
+          ordered.push(...(byCol.get(`real:${key}`) ?? []))
         }
       }
     }
@@ -401,6 +406,15 @@ export function MatrizTab({ stores }: Props) {
     }
   }, [activeStores, monthKey])
 
+  const parseDraftNumber = (raw: string | undefined, label: string): number | null => {
+    if (raw == null) return null
+    const trimmed = raw.trim()
+    if (trimmed === '') return null
+    const value = asFiniteNumber(trimmed)
+    if (value == null) throw new Error(`${label} inválido.`)
+    return value
+  }
+
   const openOneEditor = (sigla: string) => {
     const data = byStore[sigla] ?? { metas: {}, checks: {}, overrides: {} }
     const nextDrafts: Record<string, string> = {}
@@ -414,8 +428,8 @@ export function MatrizTab({ stores }: Props) {
         checks: data.checks,
         overrides: data.overrides,
       })
-      nextDrafts[kpi.id] = cell.real != null ? String(cell.real) : ''
-      nextMetas[kpi.id] = cell.meta != null ? String(cell.meta) : ''
+      nextDrafts[draftKey(sigla, kpi.id)] = cell.real != null ? String(cell.real) : ''
+      nextMetas[draftKey(sigla, kpi.id)] = cell.meta != null ? String(cell.meta) : ''
       for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
         if (sub.kind === 'conversao') continue
         const subCell = cellForSub({
@@ -427,8 +441,8 @@ export function MatrizTab({ stores }: Props) {
           overrides: data.overrides,
         })
         const key = `${kpi.id}::${sub.id}`
-        nextDrafts[key] = subCell.real != null ? String(subCell.real) : ''
-        nextMetas[key] = subCell.meta != null ? String(subCell.meta) : ''
+        nextDrafts[draftKey(sigla, key)] = subCell.real != null ? String(subCell.real) : ''
+        nextMetas[draftKey(sigla, key)] = subCell.meta != null ? String(subCell.meta) : ''
       }
     }
     setDrafts(nextDrafts)
@@ -479,84 +493,74 @@ export function MatrizTab({ stores }: Props) {
     if (!editor) return
     setBusy(true)
     setMessage(null)
+    let wrote = 0
     try {
-      if (editor.mode === 'one') {
-        const sigla = editor.sigla
+      for (const store of editorStores) {
+        const sigla = store.code
         for (const kpi of columns) {
           if (kpi.kind === 'conversao') continue
-          const metaRaw = metaDrafts[kpi.id]
-          if (needsMonthMeta(kpi.kind) && metaRaw != null && metaRaw.trim() !== '') {
-            const meta = asFiniteNumber(metaRaw)
-            if (meta == null) throw new Error(`Meta inválida em ${kpi.nome}.`)
-            await saveKpiMonthMeta({ sigla, monthKey, kpiId: kpi.id, valor: meta })
+          if (editor.mode === 'one' && needsMonthMeta(kpi.kind)) {
+            const meta = parseDraftNumber(
+              metaDrafts[draftKey(sigla, kpi.id)],
+              `${sigla} · ${kpi.nome} (${kpi.kind === 'alvo' ? 'Alvo' : 'Meta'})`,
+            )
+            if (meta != null) {
+              await saveKpiMonthMeta({ sigla, monthKey, kpiId: kpi.id, valor: meta })
+              wrote += 1
+            }
           }
-          const realRaw = drafts[kpi.id]
-          if (realRaw != null && realRaw.trim() !== '') {
-            const real = asFiniteNumber(realRaw)
-            if (real == null) throw new Error(`Real inválido em ${kpi.nome}.`)
+          const real = parseDraftNumber(
+            drafts[draftKey(sigla, kpi.id)],
+            `${sigla} · ${kpi.nome} (Real)`,
+          )
+          if (real != null) {
             await saveKpiMonthResult({ sigla, monthKey, kpiId: kpi.id, valor: real })
+            wrote += 1
           }
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
             if (sub.kind === 'conversao') continue
             const key = `${kpi.id}::${sub.id}`
-            const subMetaRaw = metaDrafts[key]
-            if (needsMonthMeta(sub.kind) && subMetaRaw != null && subMetaRaw.trim() !== '') {
-              const meta = asFiniteNumber(subMetaRaw)
-              if (meta == null) throw new Error(`Meta inválida em ${sub.nome}.`)
-              await saveSubMonthMeta({
-                sigla,
-                monthKey,
-                kpiId: kpi.id,
-                subId: sub.id,
-                valor: meta,
-              })
+            if (editor.mode === 'one' && needsMonthMeta(sub.kind)) {
+              const meta = parseDraftNumber(
+                metaDrafts[draftKey(sigla, key)],
+                `${sigla} · ${sub.nome} (${sub.kind === 'alvo' ? 'Alvo' : 'Meta'})`,
+              )
+              if (meta != null) {
+                await saveSubMonthMeta({
+                  sigla,
+                  monthKey,
+                  kpiId: kpi.id,
+                  subId: sub.id,
+                  valor: meta,
+                })
+                wrote += 1
+              }
             }
-            const subRealRaw = drafts[key]
-            if (subRealRaw != null && subRealRaw.trim() !== '') {
-              const real = asFiniteNumber(subRealRaw)
-              if (real == null) throw new Error(`Real inválido em ${sub.nome}.`)
+            const subReal = parseDraftNumber(
+              drafts[draftKey(sigla, key)],
+              `${sigla} · ${sub.nome} (Real)`,
+            )
+            if (subReal != null) {
               await saveSubMonthResult({
                 sigla,
                 monthKey,
                 kpiId: kpi.id,
                 subId: sub.id,
-                valor: real,
+                valor: subReal,
               })
+              wrote += 1
             }
           }
         }
-        setMessage(`Reais/metas salvos em ${sigla} · ${monthKey}.`)
-      } else {
-        for (const store of bulkTargetStores) {
-          const sigla = store.code
-          for (const kpi of columns) {
-            if (kpi.kind === 'conversao') continue
-            const realRaw = drafts[draftKey(sigla, kpi.id)]
-            if (realRaw != null && realRaw.trim() !== '') {
-              const real = asFiniteNumber(realRaw)
-              if (real == null) throw new Error(`Real inválido em ${sigla} · ${kpi.nome}.`)
-              await saveKpiMonthResult({ sigla, monthKey, kpiId: kpi.id, valor: real })
-            }
-            for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
-              if (sub.kind === 'conversao') continue
-              const key = `${kpi.id}::${sub.id}`
-              const subRealRaw = drafts[draftKey(sigla, key)]
-              if (subRealRaw != null && subRealRaw.trim() !== '') {
-                const real = asFiniteNumber(subRealRaw)
-                if (real == null) throw new Error(`Real inválido em ${sigla} · ${sub.nome}.`)
-                await saveSubMonthResult({
-                  sigla,
-                  monthKey,
-                  kpiId: kpi.id,
-                  subId: sub.id,
-                  valor: real,
-                })
-              }
-            }
-          }
-        }
-        setMessage(`Reais salvos em ${bulkTargetStores.length} loja(s) · ${monthKey}.`)
       }
+      if (wrote === 0) {
+        throw new Error('Nenhum valor para salvar. Preencha Meta/Alvo ou Real.')
+      }
+      setMessage(
+        editor.mode === 'bulk'
+          ? `${wrote} real(is) salvos em ${editorStores.length} loja(s) · ${monthKey}.`
+          : `${wrote} valor(es) salvos em ${editor.sigla} · ${monthKey}.`,
+      )
       setEditor(null)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao salvar resultados.')
@@ -803,7 +807,7 @@ export function MatrizTab({ stores }: Props) {
       {editor && (
         <div className="matriz-editor-backdrop" role="presentation" onClick={() => setEditor(null)}>
           <section
-            className={`matriz-editor ${editor.mode === 'bulk' ? 'matriz-editor--bulk' : ''}`}
+            className="matriz-editor matriz-editor--bulk"
             role="dialog"
             aria-modal="true"
             aria-label="Lançar resultados"
@@ -812,11 +816,11 @@ export function MatrizTab({ stores }: Props) {
             <header className="matriz-editor-head">
               <div>
                 <p className="painel-eyebrow">
-                  {editor.mode === 'bulk' ? 'Real acumulado' : 'Resultados'} · {monthKey}
+                  {editor.mode === 'bulk' ? 'Real acumulado' : 'Meta · Real'} · {monthKey}
                 </p>
                 <h3>
                   {editor.mode === 'bulk'
-                    ? `Lançar real · ${bulkTargetStores.length} loja(s)`
+                    ? `Lançar real · ${editorStores.length} loja(s)`
                     : editor.sigla}
                 </h3>
               </div>
@@ -851,192 +855,158 @@ export function MatrizTab({ stores }: Props) {
               </div>
             </div>
 
-            {editor.mode === 'one' ? (
-              <div className="matriz-editor-list">
-                {editableColumns.map((kpi) => (
-                  <div key={kpi.id} className="matriz-editor-item">
-                    <div className="matriz-editor-item-title">
-                      <span className="matriz-kpi-dot" style={{ background: kpi.cor }} aria-hidden />
-                      <strong>{kpi.nome}</strong>
-                      <small>
-                        {INDICATOR_KIND_SHORT[kpi.kind]}
-                        {kpi.kind === 'alvo'
-                          ? kpi.alvoUnidade === 'absolute'
-                            ? ' · nº'
-                            : ' · %'
-                          : ''}
-                      </small>
-                    </div>
-                    <div className="painel-form--row">
-                      {needsMonthMeta(kpi.kind) && (
-                        <label>
-                          {kpi.kind === 'alvo' ? 'Alvo' : 'Meta'}
-                          <input
-                            {...bindEditorField(`meta:${kpi.id}`)}
-                            value={metaDrafts[kpi.id] ?? ''}
-                            onChange={(e) =>
-                              setMetaDrafts((d) => ({ ...d, [kpi.id]: e.target.value }))
-                            }
-                            inputMode="decimal"
-                            placeholder="0"
-                          />
-                        </label>
-                      )}
-                      <label>
-                        Real
-                        <input
-                          {...bindEditorField(`real:${kpi.id}`)}
-                          value={drafts[kpi.id] ?? ''}
-                          onChange={(e) => setDrafts((d) => ({ ...d, [kpi.id]: e.target.value }))}
-                          inputMode="decimal"
-                          placeholder="0"
-                        />
-                      </label>
-                    </div>
-                    {(kpi.subs ?? [])
-                      .filter((s) => s.ativo !== false && s.kind !== 'conversao')
-                      .map((sub) => {
-                        const key = `${kpi.id}::${sub.id}`
+            <div className="matriz-bulk-wrap">
+              <div className="matriz-bulk-scroll">
+                <table className="matriz-bulk-table">
+                  <thead>
+                    <tr>
+                      <th className="matriz-sticky">Loja</th>
+                      {editableColumns.map((kpi) => {
+                        const subCount = (kpi.subs ?? []).filter(
+                          (s) => s.ativo !== false && s.kind !== 'conversao',
+                        ).length
+                        const open = !!bulkExpanded[kpi.id]
+                        const metaLabel = kpi.kind === 'alvo' ? 'Alvo' : 'Meta'
                         return (
-                          <div key={sub.id} className="matriz-editor-sub">
-                            <strong>{sub.nome}</strong>
-                            <div className="painel-form--row">
-                              {needsMonthMeta(sub.kind) && (
-                                <label>
-                                  {sub.kind === 'alvo' ? 'Alvo' : 'Meta'}
-                                  <input
-                                    {...bindEditorField(`meta:${key}`)}
-                                    value={metaDrafts[key] ?? ''}
-                                    onChange={(e) =>
-                                      setMetaDrafts((d) => ({ ...d, [key]: e.target.value }))
-                                    }
-                                    inputMode="decimal"
-                                  />
-                                </label>
-                              )}
-                              <label>
-                                Real
-                                <input
-                                  {...bindEditorField(`real:${key}`)}
-                                  value={drafts[key] ?? ''}
-                                  onChange={(e) =>
-                                    setDrafts((d) => ({ ...d, [key]: e.target.value }))
+                          <th key={kpi.id} style={{ ['--kpi' as string]: kpi.cor }}>
+                            <div className="matriz-bulk-colhead">
+                              <span className="matriz-kpi-dot" aria-hidden />
+                              <div>
+                                <strong>{kpi.nome}</strong>
+                                <small>
+                                  {editor.mode === 'one' ? `${metaLabel} · Real` : 'Real'}
+                                  {kpi.kind === 'alvo'
+                                    ? kpi.alvoUnidade === 'absolute'
+                                      ? ' · nº'
+                                      : ' · %'
+                                    : ''}
+                                </small>
+                              </div>
+                              {subCount > 0 && (
+                                <button
+                                  type="button"
+                                  className="matriz-sort-chip"
+                                  onClick={() =>
+                                    setBulkExpanded((prev) => ({
+                                      ...prev,
+                                      [kpi.id]: !prev[kpi.id],
+                                    }))
                                   }
-                                  inputMode="decimal"
-                                />
-                              </label>
+                                  title={open ? 'Recolher subs' : 'Expandir subs'}
+                                >
+                                  {open ? '−' : '+'}
+                                  {subCount}
+                                </button>
+                              )}
                             </div>
-                          </div>
+                          </th>
                         )
                       })}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="matriz-bulk-wrap">
-                <div className="matriz-bulk-scroll">
-                  <table className="matriz-bulk-table">
-                    <thead>
-                      <tr>
-                        <th className="matriz-sticky">Loja</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editorStores.map((store) => (
+                      <tr key={store.code}>
+                        <th className="matriz-sticky">
+                          <span className="matriz-bulk-sigla">{store.code}</span>
+                        </th>
                         {editableColumns.map((kpi) => {
-                          const subCount = (kpi.subs ?? []).filter(
-                            (s) => s.ativo !== false && s.kind !== 'conversao',
-                          ).length
                           const open = !!bulkExpanded[kpi.id]
+                          const key = draftKey(store.code, kpi.id)
+                          const metaLabel = kpi.kind === 'alvo' ? 'Alvo' : 'Meta'
                           return (
-                            <th key={kpi.id} style={{ ['--kpi' as string]: kpi.cor }}>
-                              <div className="matriz-bulk-colhead">
-                                <span className="matriz-kpi-dot" aria-hidden />
-                                <div>
-                                  <strong>{kpi.nome}</strong>
-                                  <small>Real</small>
-                                </div>
-                                {subCount > 0 && (
-                                  <button
-                                    type="button"
-                                    className="matriz-sort-chip"
-                                    onClick={() =>
-                                      setBulkExpanded((prev) => ({
-                                        ...prev,
-                                        [kpi.id]: !prev[kpi.id],
-                                      }))
-                                    }
-                                    title={open ? 'Recolher subs' : 'Expandir subs'}
-                                  >
-                                    {open ? '−' : '+'}
-                                    {subCount}
-                                  </button>
+                            <td key={kpi.id}>
+                              <div className="matriz-bulk-cell">
+                                {editor.mode === 'one' && needsMonthMeta(kpi.kind) && (
+                                  <label className="matriz-bulk-field">
+                                    <span>{metaLabel}</span>
+                                    <input
+                                      className="matriz-bulk-input"
+                                      {...bindEditorField(`meta:${key}`)}
+                                      value={metaDrafts[key] ?? ''}
+                                      onChange={(e) =>
+                                        setMetaDrafts((d) => ({ ...d, [key]: e.target.value }))
+                                      }
+                                      inputMode="decimal"
+                                      placeholder="—"
+                                      aria-label={`${store.code} · ${kpi.nome} ${metaLabel}`}
+                                    />
+                                  </label>
                                 )}
+                                <label className="matriz-bulk-field">
+                                  {editor.mode === 'one' && <span>Real</span>}
+                                  <input
+                                    className="matriz-bulk-input"
+                                    {...bindEditorField(`real:${key}`)}
+                                    value={drafts[key] ?? ''}
+                                    onChange={(e) =>
+                                      setDrafts((d) => ({ ...d, [key]: e.target.value }))
+                                    }
+                                    inputMode="decimal"
+                                    placeholder="—"
+                                    aria-label={`${store.code} · ${kpi.nome} Real`}
+                                  />
+                                </label>
                               </div>
                               {open &&
                                 (kpi.subs ?? [])
                                   .filter((s) => s.ativo !== false && s.kind !== 'conversao')
-                                  .map((sub) => (
-                                    <div key={sub.id} className="matriz-bulk-subhead">
-                                      {sub.nome}
-                                    </div>
-                                  ))}
-                            </th>
+                                  .map((sub) => {
+                                    const subKey = draftKey(store.code, `${kpi.id}::${sub.id}`)
+                                    const subMetaLabel = sub.kind === 'alvo' ? 'Alvo' : 'Meta'
+                                    return (
+                                      <div key={sub.id} className="matriz-bulk-subcell">
+                                        <span className="matriz-bulk-subhead">{sub.nome}</span>
+                                        <div className="matriz-bulk-cell">
+                                          {editor.mode === 'one' && needsMonthMeta(sub.kind) && (
+                                            <label className="matriz-bulk-field">
+                                              <span>{subMetaLabel}</span>
+                                              <input
+                                                className="matriz-bulk-input"
+                                                {...bindEditorField(`meta:${subKey}`)}
+                                                value={metaDrafts[subKey] ?? ''}
+                                                onChange={(e) =>
+                                                  setMetaDrafts((d) => ({
+                                                    ...d,
+                                                    [subKey]: e.target.value,
+                                                  }))
+                                                }
+                                                inputMode="decimal"
+                                                placeholder="—"
+                                              />
+                                            </label>
+                                          )}
+                                          <label className="matriz-bulk-field">
+                                            {editor.mode === 'one' && <span>Real</span>}
+                                            <input
+                                              className="matriz-bulk-input"
+                                              {...bindEditorField(`real:${subKey}`)}
+                                              value={drafts[subKey] ?? ''}
+                                              onChange={(e) =>
+                                                setDrafts((d) => ({
+                                                  ...d,
+                                                  [subKey]: e.target.value,
+                                                }))
+                                              }
+                                              inputMode="decimal"
+                                              placeholder="—"
+                                            />
+                                          </label>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                            </td>
                           )
                         })}
                       </tr>
-                    </thead>
-                    <tbody>
-                      {bulkTargetStores.map((store) => (
-                        <tr key={store.code}>
-                          <th className="matriz-sticky">
-                            <span className="matriz-bulk-sigla">{store.code}</span>
-                          </th>
-                          {editableColumns.map((kpi) => {
-                            const open = !!bulkExpanded[kpi.id]
-                            const key = draftKey(store.code, kpi.id)
-                            return (
-                              <td key={kpi.id}>
-                                <input
-                                  className="matriz-bulk-input"
-                                  {...bindEditorField(`real:${key}`)}
-                                  value={drafts[key] ?? ''}
-                                  onChange={(e) =>
-                                    setDrafts((d) => ({ ...d, [key]: e.target.value }))
-                                  }
-                                  inputMode="decimal"
-                                  placeholder="0"
-                                  aria-label={`${store.code} · ${kpi.nome} Real`}
-                                />
-                                {open &&
-                                  (kpi.subs ?? [])
-                                    .filter((s) => s.ativo !== false && s.kind !== 'conversao')
-                                    .map((sub) => {
-                                      const subKey = draftKey(store.code, `${kpi.id}::${sub.id}`)
-                                      return (
-                                        <input
-                                          key={sub.id}
-                                          className="matriz-bulk-input matriz-bulk-input--sub"
-                                          {...bindEditorField(`real:${subKey}`)}
-                                          value={drafts[subKey] ?? ''}
-                                          onChange={(e) =>
-                                            setDrafts((d) => ({
-                                              ...d,
-                                              [subKey]: e.target.value,
-                                            }))
-                                          }
-                                          inputMode="decimal"
-                                          placeholder="0"
-                                          aria-label={`${store.code} · ${sub.nome} Real`}
-                                        />
-                                      )
-                                    })}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
+
+            {message && <p className="painel-toast">{message}</p>}
 
             <div className="painel-store-actions">
               <button
@@ -1048,7 +1018,7 @@ export function MatrizTab({ stores }: Props) {
                 {busy
                   ? 'Salvando…'
                   : editor.mode === 'bulk'
-                    ? `Salvar reais (${bulkTargetStores.length})`
+                    ? `Salvar reais (${editorStores.length})`
                     : 'Salvar loja'}
               </button>
               <button
