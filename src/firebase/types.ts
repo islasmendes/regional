@@ -24,6 +24,9 @@ export type StoreMeta = {
  */
 export type IndicatorKind = 'volume' | 'conversao' | 'alvo'
 
+/** Unidade do tipo Alvo (ex.: NPS % ou nota absoluta). */
+export type AlvoUnidade = 'percent' | 'absolute'
+
 export type FormulaOperand = {
   /** Referência a um KPI-mãe ou a um sub. */
   scope: 'kpi' | 'sub'
@@ -50,6 +53,8 @@ export type StoreKpiSub = IndicatorChecks & {
   id: string
   nome: string
   kind: IndicatorKind
+  /** Só quando kind === 'alvo'. */
+  alvoUnidade: AlvoUnidade | null
   formula: ConversionFormula | null
   ordem: number
   ativo: boolean
@@ -63,6 +68,8 @@ export type StoreKpi = IndicatorChecks & {
   nome: string
   cor: string
   kind: IndicatorKind
+  /** Só quando kind === 'alvo'. */
+  alvoUnidade: AlvoUnidade | null
   formula: ConversionFormula | null
   ordem: number
   ativo: boolean
@@ -119,6 +126,11 @@ export const INDICATOR_KIND_LABELS: Record<IndicatorKind, string> = {
   volume: 'Volume (Meta · Real · Proj%)',
   conversao: 'Conversão (cálculo A ÷ B)',
   alvo: 'Alvo (Alvo · Real)',
+}
+
+export const ALVO_UNIDADE_LABELS: Record<AlvoUnidade, string> = {
+  percent: 'Percentual (%)',
+  absolute: 'Número absoluto',
 }
 
 export const INDICATOR_KIND_SHORT: Record<IndicatorKind, string> = {

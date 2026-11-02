@@ -1006,6 +1006,12 @@
   color: #99f6e4;
 }
 
+.matriz-kpi-colhead {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 9.5rem;
+}
+
 .matriz-kpi-head {
   display: flex;
   align-items: flex-start;
@@ -1020,8 +1026,8 @@
   min-width: 9.5rem;
 }
 
-.matriz-kpi-head:disabled {
-  cursor: default;
+.matriz-kpi-head.is-sorted strong {
+  color: #99f6e4;
 }
 
 .matriz-kpi-head strong {
@@ -1035,6 +1041,68 @@
   color: #93a4bd;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.matriz-sort-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 0;
+}
+
+.matriz-sort-head.is-active {
+  color: #99f6e4;
+}
+
+.matriz-sort-mark {
+  color: #2dd4bf;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.matriz-sort-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.matriz-sort-chip {
+  border: 1px solid #334155;
+  border-radius: 0.4rem;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+
+.matriz-sort-chip:hover {
+  border-color: #14b8a6;
+  color: #e2e8f0;
+}
+
+.matriz-sort-chip.is-on {
+  border-color: #14b8a6;
+  background: #134e4a66;
+  color: #99f6e4;
+}
+
+.matriz-editor-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.85rem;
+  align-items: end;
+  margin-bottom: 0.85rem;
 }
 
 .matriz-kpi-dot {

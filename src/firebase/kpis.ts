@@ -8,6 +8,7 @@ import {
   storeKpisPath,
 } from './paths'
 import type {
+  AlvoUnidade,
   ConversionFormula,
   IndicatorKind,
   StoreKpi,
@@ -39,6 +40,12 @@ export function defaultKpiColor(index = 0): string {
 function normalizeKind(raw: unknown): IndicatorKind {
   if (raw === 'conversao' || raw === 'alvo' || raw === 'volume') return raw
   return 'volume'
+}
+
+function normalizeAlvoUnidade(kind: IndicatorKind, raw: unknown): AlvoUnidade | null {
+  if (kind !== 'alvo') return null
+  if (raw === 'percent' || raw === 'absolute') return raw
+  return 'percent'
 }
 
 function normalizeFormula(raw: unknown): ConversionFormula | null {
@@ -91,6 +98,7 @@ export function mapSub(id: string, raw: Partial<StoreKpiSub>): StoreKpiSub | nul
     id,
     nome: raw.nome.trim(),
     kind,
+    alvoUnidade: normalizeAlvoUnidade(kind, raw.alvoUnidade),
     checkIn: !!raw.checkIn,
     checkOut: !!raw.checkOut,
     formula: normalizeFormula(raw.formula),
@@ -120,6 +128,7 @@ export function mapKpi(
     nome: raw.nome.trim(),
     cor: raw.cor?.trim() || defaultKpiColor(0),
     kind,
+    alvoUnidade: normalizeAlvoUnidade(kind, raw.alvoUnidade),
     checkIn: !!raw.checkIn,
     checkOut: !!raw.checkOut,
     formula: normalizeFormula(raw.formula),
@@ -168,6 +177,7 @@ export type StoreKpiInput = {
   nome: string
   cor?: string
   kind?: IndicatorKind
+  alvoUnidade?: AlvoUnidade | null
   checkIn?: boolean
   checkOut?: boolean
   formula?: ConversionFormula | null
@@ -185,6 +195,16 @@ function buildKpiPayload(
   const checkOut = input.checkOut ?? current?.checkOut ?? kind === 'volume'
   const formula =
     input.formula !== undefined ? input.formula : (current?.formula ?? null)
+  const alvoUnidade =
+    kind === 'alvo'
+      ? normalizeAlvoUnidade(
+          kind,
+          input.alvoUnidade !== undefined ? input.alvoUnidade : current?.alvoUnidade,
+        )
+      : null
+  if (kind === 'alvo' && !alvoUnidade) {
+    throw new Error('Alvo: selecione a unidade (% ou número absoluto).')
+  }
   validateChecks(kind, checkIn, checkOut)
   validateFormula(kind, kind === 'conversao' ? formula : null)
 
@@ -193,6 +213,7 @@ function buildKpiPayload(
     nome: input.nome.trim(),
     cor: input.cor?.trim() || current?.cor || defaultKpiColor(0),
     kind,
+    alvoUnidade,
     checkIn,
     checkOut,
     formula: kind === 'conversao' ? formula : null,
@@ -299,6 +320,7 @@ export async function moveStoreKpi(
 export type StoreKpiSubInput = {
   nome: string
   kind?: IndicatorKind
+  alvoUnidade?: AlvoUnidade | null
   checkIn?: boolean
   checkOut?: boolean
   formula?: ConversionFormula | null
@@ -316,14 +338,25 @@ function buildSubPayload(
   const checkOut = input.checkOut ?? current?.checkOut ?? false
   const formula =
     input.formula !== undefined ? input.formula : (current?.formula ?? null)
+  const alvoUnidade =
+    kind === 'alvo'
+      ? normalizeAlvoUnidade(
+          kind,
+          input.alvoUnidade !== undefined ? input.alvoUnidade : current?.alvoUnidade,
+        )
+      : null
   if (kind === 'volume' && !checkIn && !checkOut) {
     throw new Error('Sub volume: ative check-in e/ou check-out, ou use tipo conversão/alvo.')
+  }
+  if (kind === 'alvo' && !alvoUnidade) {
+    throw new Error('Sub alvo: selecione a unidade (% ou número absoluto).')
   }
   validateFormula(kind, kind === 'conversao' ? formula : null)
   return {
     id,
     nome: input.nome.trim(),
     kind,
+    alvoUnidade,
     checkIn,
     checkOut,
     formula: kind === 'conversao' ? formula : null,
