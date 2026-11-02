@@ -6,14 +6,9 @@ export function CalculadoraPage() {
   return (
     <main className="calc-page-shell">
       <header className="calc-page-header">
-        <div>
-          <p className="painel-eyebrow">Acesso livre · sem login</p>
-          <h1>Calculadora</h1>
-          <p>
-            Meta, real, YoY, ritmo e conversão — todos os resultados de uma vez. Link direto:{' '}
-            <code>islasmendes.github.io/regional/calculadora</code>
-          </p>
-        </div>
+        <p className="painel-eyebrow">Gestão rápida</p>
+        <h1>Calculadora</h1>
+        <p>Digite meta e real — os cards mostram o restante.</p>
       </header>
       <CalculadorasPanel />
     </main>
