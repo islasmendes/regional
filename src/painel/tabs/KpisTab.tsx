@@ -16,8 +16,8 @@ import {
   upsertStoreKpi,
   upsertStoreKpiSub,
 } from '../../firebase/kpis'
-import { currentMonthKey, saveKpiMonthMeta, saveSubMonthMeta, subscribeMonthMetas } from '../../firebase/metas'
 import type {
+  AlvoUnidade,
   ConversionFormula,
   IndicatorKind,
   StoreKpi,
@@ -25,11 +25,10 @@ import type {
   StoreMeta,
 } from '../../firebase/types'
 import {
+  ALVO_UNIDADE_LABELS,
   INDICATOR_KIND_LABELS,
   INDICATOR_KIND_SHORT,
   defaultChecksForKind,
-  metaFieldLabel,
-  needsMonthMeta,
 } from '../../firebase/types'
 import {
   STORE_SCOPE_ALL,
@@ -51,42 +50,42 @@ type KpiDraft = {
   nome: string
   cor: string
   kind: IndicatorKind
+  alvoUnidade: AlvoUnidade
   checkIn: boolean
   checkOut: boolean
   numRef: string
   denRef: string
-  metaMes: string
 }
 
 type SubDraft = {
   nome: string
   kind: IndicatorKind
+  alvoUnidade: AlvoUnidade
   checkIn: boolean
   checkOut: boolean
   numRef: string
   denRef: string
-  metaMes: string
 }
 
 const emptyKpiDraft = (): KpiDraft => ({
   nome: '',
   cor: defaultKpiColor(0),
   kind: 'volume',
+  alvoUnidade: 'percent',
   checkIn: true,
   checkOut: true,
   numRef: '',
   denRef: '',
-  metaMes: '',
 })
 
 const emptySubDraft = (): SubDraft => ({
   nome: '',
   kind: 'conversao',
+  alvoUnidade: 'percent',
   checkIn: false,
   checkOut: false,
   numRef: '',
   denRef: '',
-  metaMes: '',
 })
 
 function formulaFromDraft(kind: IndicatorKind, numRef: string, denRef: string): ConversionFormula | null {
@@ -95,6 +94,14 @@ function formulaFromDraft(kind: IndicatorKind, numRef: string, denRef: string): 
   const denominator = selectValueToOperand(denRef)
   if (!numerator || !denominator) return null
   return { op: 'div', numerator, denominator }
+}
+
+function kindSummary(kind: IndicatorKind, alvoUnidade: AlvoUnidade | null | undefined): string {
+  if (kind === 'conversao') return 'Conversão A ÷ B'
+  if (kind === 'alvo') {
+    return alvoUnidade === 'absolute' ? 'Alvo · número absoluto' : 'Alvo · percentual (%)'
+  }
+  return 'Volume · Meta/Real na Matriz'
 }
 
 function Toggle({
@@ -130,12 +137,29 @@ function KindBadge({ kind }: { kind: IndicatorKind }) {
   return <span className={`painel-kind-badge painel-kind-badge--${kind}`}>{INDICATOR_KIND_SHORT[kind]}</span>
 }
 
+function AlvoUnidadeField({
+  value,
+  onChange,
+}: {
+  value: AlvoUnidade
+  onChange: (next: AlvoUnidade) => void
+}) {
+  return (
+    <ThemeSelect
+      label="Unidade do Alvo"
+      value={value}
+      onChange={(raw) => onChange(raw as AlvoUnidade)}
+      options={(Object.keys(ALVO_UNIDADE_LABELS) as AlvoUnidade[]).map((unit) => ({
+        value: unit,
+        label: ALVO_UNIDADE_LABELS[unit],
+      }))}
+    />
+  )
+}
+
 export function KpisTab({ stores }: Props) {
   const [scope, setScope] = useState<StoreScope>(STORE_SCOPE_ALL)
   const [kpis, setKpis] = useState<StoreKpi[]>([])
-  const [metas, setMetas] = useState<
-    Record<string, { valor?: number; subs?: Record<string, { valor?: number }> }>
-  >({})
   const [draft, setDraft] = useState<KpiDraft>(emptyKpiDraft)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -144,7 +168,6 @@ export function KpisTab({ stores }: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  const monthKey = currentMonthKey()
   const targets = useMemo(() => resolveTargetSiglas(scope, stores), [scope, stores])
   const readSigla = useMemo(() => canonicalSigla(scope, stores), [scope, stores])
   const scopeText = storeScopeLabel(scope, targets.length)
@@ -156,14 +179,6 @@ export function KpisTab({ stores }: Props) {
     }
     return subscribeStoreKpis(readSigla, setKpis)
   }, [readSigla])
-
-  useEffect(() => {
-    if (!readSigla) {
-      setMetas({})
-      return
-    }
-    return subscribeMonthMetas(readSigla, monthKey, setMetas)
-  }, [readSigla, monthKey])
 
   const formulaOptions = useMemo(() => formulaOptionsFromKpis(kpis), [kpis])
 
@@ -188,6 +203,7 @@ export function KpisTab({ stores }: Props) {
         nome: draft.nome,
         cor: draft.cor,
         kind: draft.kind,
+        alvoUnidade: draft.kind === 'alvo' ? draft.alvoUnidade : null,
         checkIn: draft.checkIn,
         checkOut: draft.checkOut,
         formula,
@@ -199,19 +215,7 @@ export function KpisTab({ stores }: Props) {
         await forEachStoreSigla(targets, (sigla) => createStoreKpi(sigla, { ...payload, id: kpiId }))
       }
 
-      if (needsMonthMeta(draft.kind) && draft.metaMes.trim() !== '') {
-        const valor = Number(draft.metaMes.replace(',', '.'))
-        if (!Number.isFinite(valor)) throw new Error(`${metaFieldLabel(draft.kind)} do mês inválido.`)
-        await forEachStoreSigla(targets, (sigla) =>
-          saveKpiMonthMeta({ sigla, monthKey, kpiId, valor }),
-        )
-      }
-
-      setMessage(
-        editingId
-          ? `KPI atualizado em ${scopeText} · ${monthKey}.`
-          : `KPI criado em ${scopeText}.`,
-      )
+      setMessage(editingId ? `KPI atualizado em ${scopeText}.` : `KPI criado em ${scopeText}.`)
       setDraft(emptyKpiDraft())
       setEditingId(null)
     } catch (error) {
@@ -224,16 +228,15 @@ export function KpisTab({ stores }: Props) {
   const onEditKpi = (kpi: StoreKpi) => {
     setEditingId(kpi.id)
     setExpandedId(kpi.id)
-    const metaValor = metas[kpi.id]?.valor
     setDraft({
       nome: kpi.nome,
       cor: kpi.cor,
       kind: kpi.kind,
+      alvoUnidade: kpi.alvoUnidade ?? 'percent',
       checkIn: kpi.checkIn,
       checkOut: kpi.checkOut,
       numRef: operandToSelectValue(kpi.formula?.numerator),
       denRef: operandToSelectValue(kpi.formula?.denominator),
-      metaMes: metaValor != null ? String(metaValor) : '',
     })
     setMessage(null)
   }
@@ -283,6 +286,7 @@ export function KpisTab({ stores }: Props) {
       const payload = {
         nome: subDraft.nome,
         kind: subDraft.kind,
+        alvoUnidade: subDraft.kind === 'alvo' ? subDraft.alvoUnidade : null,
         checkIn: subDraft.checkIn,
         checkOut: subDraft.checkOut,
         formula,
@@ -295,20 +299,6 @@ export function KpisTab({ stores }: Props) {
       } else {
         await forEachStoreSigla(targets, (sigla) =>
           createStoreKpiSub(sigla, parent.id, { ...payload, id: subId }),
-        )
-      }
-
-      if (needsMonthMeta(subDraft.kind) && subDraft.metaMes.trim() !== '') {
-        const valor = Number(subDraft.metaMes.replace(',', '.'))
-        if (!Number.isFinite(valor)) throw new Error(`${metaFieldLabel(subDraft.kind)} do sub inválido.`)
-        await forEachStoreSigla(targets, (sigla) =>
-          saveSubMonthMeta({
-            sigla,
-            monthKey,
-            kpiId: parent.id,
-            subId,
-            valor,
-          }),
         )
       }
 
@@ -325,15 +315,14 @@ export function KpisTab({ stores }: Props) {
   const onEditSub = (parent: StoreKpi, sub: StoreKpiSub) => {
     setExpandedId(parent.id)
     setEditingSubId(sub.id)
-    const metaValor = metas[parent.id]?.subs?.[sub.id]?.valor
     setSubDraft({
       nome: sub.nome,
       kind: sub.kind,
+      alvoUnidade: sub.alvoUnidade ?? 'percent',
       checkIn: sub.checkIn,
       checkOut: sub.checkOut,
       numRef: operandToSelectValue(sub.formula?.numerator),
       denRef: operandToSelectValue(sub.formula?.denominator),
-      metaMes: metaValor != null ? String(metaValor) : '',
     })
   }
 
@@ -429,7 +418,6 @@ export function KpisTab({ stores }: Props) {
                 checkOut: checks.checkOut,
                 numRef: kind === 'conversao' ? d.numRef : '',
                 denRef: kind === 'conversao' ? d.denRef : '',
-                metaMes: needsMonthMeta(kind) ? d.metaMes : '',
               }))
             }}
             options={(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map((kind) => ({
@@ -437,6 +425,14 @@ export function KpisTab({ stores }: Props) {
               label: INDICATOR_KIND_LABELS[kind],
             }))}
           />
+
+          {draft.kind === 'alvo' && (
+            <AlvoUnidadeField
+              value={draft.alvoUnidade}
+              onChange={(alvoUnidade) => setDraft((d) => ({ ...d, alvoUnidade }))}
+            />
+          )}
+
           <div className="painel-kpi-flags">
             <Toggle
               label="Check-in"
@@ -458,17 +454,9 @@ export function KpisTab({ stores }: Props) {
             (denRef) => setDraft((d) => ({ ...d, denRef })),
           )}
 
-          {needsMonthMeta(draft.kind) && (
-            <label>
-              {metaFieldLabel(draft.kind)} do mês ({monthKey})
-              <input
-                value={draft.metaMes}
-                onChange={(e) => setDraft((d) => ({ ...d, metaMes: e.target.value }))}
-                placeholder="Ex.: 100"
-                inputMode="decimal"
-              />
-            </label>
-          )}
+          <p className="painel-muted">
+            Meta/Alvo mensal é lançado na Matriz, clicando na sigla da loja.
+          </p>
 
           <div className="painel-store-actions">
             <button
@@ -522,9 +510,7 @@ export function KpisTab({ stores }: Props) {
                       <span className="painel-muted">
                         {kpi.kind === 'conversao'
                           ? `Fórmula: ${formulaLabel(kpi.formula, kpis)}`
-                          : metas[kpi.id]?.valor != null
-                            ? `${metaFieldLabel(kpi.kind)} ${monthKey}: ${metas[kpi.id]?.valor}`
-                            : `${metaFieldLabel(kpi.kind)} ${monthKey}: —`}
+                          : kindSummary(kpi.kind, kpi.alvoUnidade)}
                         {subCount > 0 ? ` · ${subCount} sub(s)` : ''}
                       </span>
                     </div>
@@ -590,9 +576,7 @@ export function KpisTab({ stores }: Props) {
                                 <span className="painel-muted">
                                   {sub.kind === 'conversao'
                                     ? `Fórmula: ${formulaLabel(sub.formula, kpis)}`
-                                    : metas[kpi.id]?.subs?.[sub.id]?.valor != null
-                                      ? `${metaFieldLabel(sub.kind)}: ${metas[kpi.id]?.subs?.[sub.id]?.valor}`
-                                      : `${metaFieldLabel(sub.kind)}: —`}
+                                    : kindSummary(sub.kind, sub.alvoUnidade)}
                                 </span>
                               </div>
                               <div className="painel-store-actions">
@@ -669,7 +653,6 @@ export function KpisTab({ stores }: Props) {
                               checkOut: checks.checkOut,
                               numRef: kind === 'conversao' ? d.numRef : '',
                               denRef: kind === 'conversao' ? d.denRef : '',
-                              metaMes: needsMonthMeta(kind) ? d.metaMes : '',
                             }))
                           }}
                           options={(Object.keys(INDICATOR_KIND_LABELS) as IndicatorKind[]).map(
@@ -679,6 +662,12 @@ export function KpisTab({ stores }: Props) {
                             }),
                           )}
                         />
+                        {subDraft.kind === 'alvo' && (
+                          <AlvoUnidadeField
+                            value={subDraft.alvoUnidade}
+                            onChange={(alvoUnidade) => setSubDraft((d) => ({ ...d, alvoUnidade }))}
+                          />
+                        )}
                         <div className="painel-kpi-flags">
                           <Toggle
                             label="Check-in"
@@ -697,18 +686,6 @@ export function KpisTab({ stores }: Props) {
                           subDraft.denRef,
                           (numRef) => setSubDraft((d) => ({ ...d, numRef })),
                           (denRef) => setSubDraft((d) => ({ ...d, denRef })),
-                        )}
-                        {needsMonthMeta(subDraft.kind) && (
-                          <label>
-                            {metaFieldLabel(subDraft.kind)} do mês ({monthKey})
-                            <input
-                              value={subDraft.metaMes}
-                              onChange={(e) =>
-                                setSubDraft((d) => ({ ...d, metaMes: e.target.value }))
-                              }
-                              inputMode="decimal"
-                            />
-                          </label>
                         )}
                         <div className="painel-store-actions">
                           <button
