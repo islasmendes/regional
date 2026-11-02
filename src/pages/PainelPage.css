@@ -1244,6 +1244,102 @@
   box-shadow: 0 -20px 60px #020617aa;
 }
 
+.matriz-editor--bulk {
+  width: min(100%, 72rem);
+}
+
+.matriz-bulk-wrap {
+  overflow: hidden;
+  border: 1px solid #1f2937;
+  border-radius: 0.85rem;
+}
+
+.matriz-bulk-scroll {
+  width: 100%;
+  overflow: auto;
+  max-height: min(58dvh, 36rem);
+}
+
+.matriz-bulk-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 36rem;
+}
+
+.matriz-bulk-table th,
+.matriz-bulk-table td {
+  border-bottom: 1px solid #1f2937;
+  border-right: 1px solid #1f2937;
+  padding: 0.55rem 0.6rem;
+  vertical-align: top;
+  background: #0b1220;
+}
+
+.matriz-bulk-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #111827;
+}
+
+.matriz-bulk-colhead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 6.5rem;
+}
+
+.matriz-bulk-colhead strong {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.matriz-bulk-colhead small {
+  display: block;
+  margin-top: 0.1rem;
+  color: #93a4bd;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.matriz-bulk-subhead {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed #243247;
+  color: #93a4bd;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.matriz-bulk-sigla {
+  color: #99f6e4;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.matriz-bulk-input {
+  width: 100%;
+  min-width: 4.5rem;
+  border: 1px solid #334155;
+  border-radius: 0.45rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+}
+
+.matriz-bulk-input:focus {
+  outline: none;
+  border-color: #14b8a6;
+}
+
+.matriz-bulk-input--sub {
+  margin-top: 0.4rem;
+}
+
 .matriz-editor-head {
   display: flex;
   justify-content: space-between;
