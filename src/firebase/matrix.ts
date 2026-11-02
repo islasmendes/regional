@@ -147,11 +147,35 @@ export function monthPace(monthKey: string, timeZone = APP_TIMEZONE, at = new Da
   return { daysInMonth: total, daysElapsed: elapsed }
 }
 
+/** Ex.: "dia 2/30" — ritmo usado na Proj%. */
+export function formatMonthPaceLabel(monthKey: string, timeZone = APP_TIMEZONE): string {
+  const { daysInMonth: total, daysElapsed } = monthPace(monthKey, timeZone)
+  return `dia ${daysElapsed}/${total}`
+}
+
 function projPct(meta: number | null, real: number | null, monthKey: string): number | null {
   if (meta == null || meta <= 0 || real == null) return null
   const { daysInMonth: dim, daysElapsed } = monthPace(monthKey)
   const projected = (real / daysElapsed) * dim
   return (projected / meta) * 100
+}
+
+/**
+ * Proj% = (Real ÷ dias decorridos × dias do mês) ÷ Meta × 100
+ * Extrapolação linear do ritmo atual até o fim do mês.
+ */
+export function describeProjPct(
+  meta: number | null,
+  real: number | null,
+  monthKey: string,
+): string | null {
+  if (meta == null || meta <= 0 || real == null || !Number.isFinite(real)) return null
+  const { daysInMonth: dim, daysElapsed } = monthPace(monthKey)
+  const projected = (real / daysElapsed) * dim
+  const pct = (projected / meta) * 100
+  const projectedLabel = projected.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  const pctLabel = pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+  return `Proj% = (Real ÷ ${daysElapsed}d × ${dim}d) ÷ Meta × 100 → (${real} ÷ ${daysElapsed} × ${dim}) ÷ ${meta} = ${projectedLabel} ÷ ${meta} = ${pctLabel}%`
 }
 
 function resolveOperandReal(
