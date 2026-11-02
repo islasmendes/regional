@@ -1,4 +1,4 @@
-export type PainelTabId = 'inicio' | 'lojas' | 'kpis' | 'horarios' | 'abas'
+export type PainelTabId = 'inicio' | 'lojas' | 'kpis' | 'horarios' | 'matriz' | 'abas'
 
 export type PainelTabDef = {
   id: PainelTabId
@@ -41,6 +41,13 @@ export const PAINEL_TAB_REGISTRY: readonly PainelTabDef[] = [
     label: 'Horários',
     group: 'cadastros',
     description: 'Janelas e dias ativos de check-in / check-out.',
+    defaultEnabled: true,
+  },
+  {
+    id: 'matriz',
+    label: 'Matriz',
+    group: 'geral',
+    description: 'Lojas × KPIs — Meta / Real / Proj% (e tipos conversão/alvo).',
     defaultEnabled: true,
   },
   {

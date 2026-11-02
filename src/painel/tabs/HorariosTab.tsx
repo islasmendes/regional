@@ -14,6 +14,7 @@ import {
   type StoreScope,
 } from '../../lib/storeScope'
 import { WEEKDAY_LABELS } from '../../lib/time'
+import { ThemeTimeField } from '../../ui/ThemeTimeField'
 import { StoreScopeSelect } from '../StoreScopeSelect'
 
 type Props = {
@@ -147,24 +148,16 @@ export function HorariosTab({ stores }: Props) {
             </div>
           </header>
           <div className="painel-form--row">
-            <label>
-              Inicia
-              <input
-                type="time"
-                value={draft.checkIn.start}
-                onChange={(e) => setWindow('checkIn', { start: e.target.value })}
-                required
-              />
-            </label>
-            <label>
-              Encerra
-              <input
-                type="time"
-                value={draft.checkIn.end}
-                onChange={(e) => setWindow('checkIn', { end: e.target.value })}
-                required
-              />
-            </label>
+            <ThemeTimeField
+              label="Inicia"
+              value={draft.checkIn.start}
+              onChange={(start) => setWindow('checkIn', { start })}
+            />
+            <ThemeTimeField
+              label="Encerra"
+              value={draft.checkIn.end}
+              onChange={(end) => setWindow('checkIn', { end })}
+            />
           </div>
         </section>
 
@@ -177,24 +170,16 @@ export function HorariosTab({ stores }: Props) {
             </div>
           </header>
           <div className="painel-form--row">
-            <label>
-              Inicia
-              <input
-                type="time"
-                value={draft.checkOut.start}
-                onChange={(e) => setWindow('checkOut', { start: e.target.value })}
-                required
-              />
-            </label>
-            <label>
-              Encerra
-              <input
-                type="time"
-                value={draft.checkOut.end}
-                onChange={(e) => setWindow('checkOut', { end: e.target.value })}
-                required
-              />
-            </label>
+            <ThemeTimeField
+              label="Inicia"
+              value={draft.checkOut.start}
+              onChange={(start) => setWindow('checkOut', { start })}
+            />
+            <ThemeTimeField
+              label="Encerra"
+              value={draft.checkOut.end}
+              onChange={(end) => setWindow('checkOut', { end })}
+            />
           </div>
         </section>
       </div>

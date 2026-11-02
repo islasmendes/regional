@@ -8,6 +8,7 @@ import { HorariosTab } from '../painel/tabs/HorariosTab'
 import { InicioTab } from '../painel/tabs/InicioTab'
 import { KpisTab } from '../painel/tabs/KpisTab'
 import { LojasTab } from '../painel/tabs/LojasTab'
+import { MatrizTab } from '../painel/tabs/MatrizTab'
 import {
   isPainelTabId,
   PAINEL_TAB_REGISTRY,
@@ -197,6 +198,7 @@ export function PainelPage() {
           {activeTab === 'lojas' && <LojasTab stores={stores} />}
           {activeTab === 'kpis' && <KpisTab stores={stores} />}
           {activeTab === 'horarios' && <HorariosTab stores={stores} />}
+          {activeTab === 'matriz' && <MatrizTab stores={stores} />}
           {activeTab === 'abas' && (
             <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
           )}

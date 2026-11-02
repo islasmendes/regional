@@ -13,3 +13,9 @@
 - **Padrão = `TODOS`**: a alteração grava em **todas** as lojas ativas.
 - Só escolhe uma sigla quando for **exceção** pontual.
 - Componente: `src/painel/StoreScopeSelect.tsx` + helpers em `src/lib/storeScope.ts`.
+
+## 3. Controles no tema (sem nativos “de sistema”)
+
+- **Proibido** `<select>` nativo, `<input type="time|date">` e pickers do browser em telas do produto.
+- Usar `ThemeSelect`, `ThemeTimeField`, `ThemeFlags` em `src/ui/`.
+- Novos campos de escolha / hora / calendário **devem** nascer no tema Regional.
