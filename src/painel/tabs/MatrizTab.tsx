@@ -19,7 +19,11 @@ import {
 import { currentMonthKey, saveKpiMonthMeta, saveSubMonthMeta } from '../../firebase/metas'
 import { saveKpiMonthResult, saveSubMonthResult } from '../../firebase/results'
 import type { AlvoUnidade, StoreKpi, StoreMeta } from '../../firebase/types'
-import { INDICATOR_KIND_SHORT, needsMonthMeta } from '../../firebase/types'
+import {
+  INDICATOR_KIND_SHORT,
+  alvoUnidadeShort,
+  needsMonthMetaFor,
+} from '../../firebase/types'
 import { ThemeSelect } from '../../ui/ThemeSelect'
 
 type Props = {
@@ -74,6 +78,16 @@ function CellStack({
     )
   }
   if (cell.kind === 'alvo') {
+    if (alvoUnidade === 'evidencia') {
+      return (
+        <div className="matriz-cell matriz-cell--alvo matriz-cell--evidencia">
+          <div className="matriz-metric">
+            <span className="matriz-cell-label">Real</span>
+            <strong>{formatAlvoValue(cell.real, 'absolute')}</strong>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="matriz-cell matriz-cell--alvo">
         <div className="matriz-metric">
@@ -108,22 +122,32 @@ function CellStack({
   )
 }
 
-function defaultMetricForKind(kind: StoreKpi['kind']): Exclude<SortMetric, 'az'> {
+function defaultMetricForKind(
+  kind: StoreKpi['kind'],
+  alvoUnidade?: AlvoUnidade | null,
+): Exclude<SortMetric, 'az'> {
   if (kind === 'conversao') return 'proj'
-  if (kind === 'alvo') return 'meta'
+  if (kind === 'alvo') return alvoUnidade === 'evidencia' ? 'real' : 'meta'
   return 'real'
 }
 
-function sortMetricLabel(metric: SortMetric, kind: StoreKpi['kind']): string {
+function sortMetricLabel(
+  metric: SortMetric,
+  kind: StoreKpi['kind'],
+  alvoUnidade?: AlvoUnidade | null,
+): string {
   if (metric === 'az') return 'A–Z'
   if (metric === 'meta') return kind === 'alvo' ? 'Alvo' : 'Meta'
-  if (metric === 'real') return 'Real'
+  if (metric === 'real') return alvoUnidade === 'evidencia' ? 'Evid.' : 'Real'
   return kind === 'conversao' ? 'Conv%' : 'Proj%'
 }
 
-function metricsForKind(kind: StoreKpi['kind']): Array<Exclude<SortMetric, 'az'>> {
+function metricsForKind(
+  kind: StoreKpi['kind'],
+  alvoUnidade?: AlvoUnidade | null,
+): Array<Exclude<SortMetric, 'az'>> {
   if (kind === 'conversao') return ['proj']
-  if (kind === 'alvo') return ['meta', 'real']
+  if (kind === 'alvo') return alvoUnidade === 'evidencia' ? ['real'] : ['meta', 'real']
   return ['meta', 'real', 'proj']
 }
 
@@ -209,7 +233,7 @@ export function MatrizTab({ stores }: Props) {
     const fields: EditorField[] = []
     for (const store of editorStores) {
       for (const kpi of editableColumns) {
-        if (editor.mode === 'one' && needsMonthMeta(kpi.kind)) {
+        if (editor.mode === 'one' && needsMonthMetaFor(kpi)) {
           fields.push({
             fieldId: `meta:${draftKey(store.code, kpi.id)}`,
             kind: 'meta',
@@ -228,7 +252,7 @@ export function MatrizTab({ stores }: Props) {
         if (bulkExpanded[kpi.id]) {
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
             const key = `${kpi.id}::${sub.id}`
-            if (editor.mode === 'one' && needsMonthMeta(sub.kind)) {
+            if (editor.mode === 'one' && needsMonthMetaFor(sub)) {
               fields.push({
                 fieldId: `meta:${draftKey(store.code, key)}`,
                 kind: 'meta',
@@ -343,9 +367,9 @@ export function MatrizTab({ stores }: Props) {
   }
 
   const sortByKpiName = (kpi: StoreKpi) => {
-    const preferred = defaultMetricForKind(kpi.kind)
+    const preferred = defaultMetricForKind(kpi.kind, kpi.alvoUnidade)
     if (sortKpiId === kpi.id && sortMetric === preferred) {
-      const cycle = metricsForKind(kpi.kind)
+      const cycle = metricsForKind(kpi.kind, kpi.alvoUnidade)
       const idx = cycle.indexOf(preferred)
       const next = cycle[(idx + 1) % cycle.length]!
       if (next === preferred) {
@@ -585,7 +609,7 @@ export function MatrizTab({ stores }: Props) {
         const sigla = store.code
         for (const kpi of columns) {
           if (kpi.kind === 'conversao') continue
-          if (editor.mode === 'one' && needsMonthMeta(kpi.kind)) {
+          if (editor.mode === 'one' && needsMonthMetaFor(kpi)) {
             const meta = parseDraftNumber(
               metaDrafts[draftKey(sigla, kpi.id)],
               `${sigla} · ${kpi.nome} (${kpi.kind === 'alvo' ? 'Alvo' : 'Meta'})`,
@@ -608,7 +632,7 @@ export function MatrizTab({ stores }: Props) {
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
             if (sub.kind === 'conversao') continue
             const key = `${kpi.id}::${sub.id}`
-            if (editor.mode === 'one' && needsMonthMeta(sub.kind)) {
+            if (editor.mode === 'one' && needsMonthMetaFor(sub)) {
               const meta = parseDraftNumber(
                 metaDrafts[draftKey(sigla, key)],
                 `${sigla} · ${sub.nome} (${sub.kind === 'alvo' ? 'Alvo' : 'Meta'})`,
@@ -806,13 +830,13 @@ export function MatrizTab({ stores }: Props) {
                               <small>
                                 {INDICATOR_KIND_SHORT[kpi.kind]}
                                 {active
-                                  ? ` · ↓ ${sortMetricLabel(sortMetric, kpi.kind)}`
+                                  ? ` · ↓ ${sortMetricLabel(sortMetric, kpi.kind, kpi.alvoUnidade)}`
                                   : ''}
                               </small>
                             </span>
                           </button>
                           <div className="matriz-sort-chips" role="group" aria-label={`Ordenar ${kpi.nome}`}>
-                            {metricsForKind(kpi.kind).map((metric) => (
+                            {metricsForKind(kpi.kind, kpi.alvoUnidade).map((metric) => (
                               <button
                                 key={metric}
                                 type="button"
@@ -821,7 +845,7 @@ export function MatrizTab({ stores }: Props) {
                                 }`}
                                 onClick={() => sortByKpiMetric(kpi, metric)}
                               >
-                                {sortMetricLabel(metric, kpi.kind)}
+                                {sortMetricLabel(metric, kpi.kind, kpi.alvoUnidade)}
                               </button>
                             ))}
                             {subCount > 0 && (
@@ -968,7 +992,15 @@ export function MatrizTab({ stores }: Props) {
                           (s) => s.ativo !== false && s.kind !== 'conversao',
                         ).length
                         const open = !!bulkExpanded[kpi.id]
-                        const metaLabel = kpi.kind === 'alvo' ? 'Alvo' : 'Meta'
+                        const unit = alvoUnidadeShort(kpi.alvoUnidade)
+                        const headFields =
+                          editor.mode === 'one'
+                            ? needsMonthMetaFor(kpi)
+                              ? `${kpi.kind === 'alvo' ? 'Alvo' : 'Meta'} · Real`
+                              : kpi.alvoUnidade === 'evidencia'
+                                ? 'Evid. · Real'
+                                : 'Real'
+                            : 'Real'
                         return (
                           <th key={kpi.id} style={{ ['--kpi' as string]: kpi.cor }}>
                             <div className="matriz-bulk-colhead">
@@ -976,12 +1008,8 @@ export function MatrizTab({ stores }: Props) {
                               <div>
                                 <strong>{kpi.nome}</strong>
                                 <small>
-                                  {editor.mode === 'one' ? `${metaLabel} · Real` : 'Real'}
-                                  {kpi.kind === 'alvo'
-                                    ? kpi.alvoUnidade === 'absolute'
-                                      ? ' · nº'
-                                      : ' · %'
-                                    : ''}
+                                  {headFields}
+                                  {unit ? ` · ${unit}` : ''}
                                 </small>
                               </div>
                               {subCount > 0 && (
@@ -1019,7 +1047,7 @@ export function MatrizTab({ stores }: Props) {
                           return (
                             <td key={kpi.id}>
                               <div className="matriz-bulk-cell">
-                                {editor.mode === 'one' && needsMonthMeta(kpi.kind) && (
+                                {editor.mode === 'one' && needsMonthMetaFor(kpi) && (
                                   <label className="matriz-bulk-field">
                                     <span>{metaLabel}</span>
                                     <input
@@ -1036,7 +1064,11 @@ export function MatrizTab({ stores }: Props) {
                                   </label>
                                 )}
                                 <label className="matriz-bulk-field">
-                                  {editor.mode === 'one' && <span>Real</span>}
+                                  {editor.mode === 'one' && (
+                                    <span>
+                                      {kpi.alvoUnidade === 'evidencia' ? 'Evidência' : 'Real'}
+                                    </span>
+                                  )}
                                   <input
                                     className="matriz-bulk-input"
                                     {...bindEditorField(`real:${key}`)}
@@ -1056,11 +1088,15 @@ export function MatrizTab({ stores }: Props) {
                                   .map((sub) => {
                                     const subKey = draftKey(store.code, `${kpi.id}::${sub.id}`)
                                     const subMetaLabel = sub.kind === 'alvo' ? 'Alvo' : 'Meta'
+                                    const subUnit = alvoUnidadeShort(sub.alvoUnidade)
                                     return (
                                       <div key={sub.id} className="matriz-bulk-subcell">
-                                        <span className="matriz-bulk-subhead">{sub.nome}</span>
+                                        <span className="matriz-bulk-subhead">
+                                          {sub.nome}
+                                          {subUnit ? ` · ${subUnit}` : ''}
+                                        </span>
                                         <div className="matriz-bulk-cell">
-                                          {editor.mode === 'one' && needsMonthMeta(sub.kind) && (
+                                          {editor.mode === 'one' && needsMonthMetaFor(sub) && (
                                             <label className="matriz-bulk-field">
                                               <span>{subMetaLabel}</span>
                                               <input
@@ -1079,7 +1115,13 @@ export function MatrizTab({ stores }: Props) {
                                             </label>
                                           )}
                                           <label className="matriz-bulk-field">
-                                            {editor.mode === 'one' && <span>Real</span>}
+                                            {editor.mode === 'one' && (
+                                              <span>
+                                                {sub.alvoUnidade === 'evidencia'
+                                                  ? 'Evidência'
+                                                  : 'Real'}
+                                              </span>
+                                            )}
                                             <input
                                               className="matriz-bulk-input"
                                               {...bindEditorField(`real:${subKey}`)}
