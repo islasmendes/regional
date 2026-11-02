@@ -76,19 +76,18 @@
 }
 
 .ui-select-menu {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
-  max-height: 16rem;
   overflow: auto;
   padding: 0.35rem;
   border: 1px solid #243247;
   border-radius: 0.85rem;
-  background: #0b1220f2;
+  background: #0b1220f5;
   backdrop-filter: blur(12px);
   box-shadow: 0 18px 40px #020617aa;
+}
+
+.ui-portal-menu {
+  position: fixed;
+  z-index: 10050;
 }
 
 .ui-select-option {
@@ -197,10 +196,6 @@
 }
 
 .ui-time-pop {
-  position: absolute;
-  z-index: 45;
-  top: calc(100% + 0.35rem);
-  left: 0;
   min-width: 12.5rem;
   padding: 0.65rem;
   border: 1px solid #243247;
@@ -208,6 +203,7 @@
   background: #0b1220f5;
   backdrop-filter: blur(12px);
   box-shadow: 0 18px 40px #020617aa;
+  overflow: auto;
 }
 
 .ui-time-cols {

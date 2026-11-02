@@ -52,7 +52,7 @@ export function AbasTab({ config }: Props) {
         abas: true,
       }
       await saveTabsConfig({ ...draft, enabled })
-      setMessage('Ordem das abas salva na raiz (master/ui/tabs).')
+      setMessage('Ordem das abas salva.')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao salvar abas.')
     } finally {
@@ -67,14 +67,6 @@ export function AbasTab({ config }: Props) {
 
   return (
     <div className="painel-tab">
-      <header className="painel-tab-head">
-        <h2>Abas</h2>
-        <p>
-          Reorganize a sidebar na raiz. Depois dá para classificar/ordenar com mais abas (matriz,
-          KPIs, etc.).
-        </p>
-      </header>
-
       <section className="painel-panel">
         <ol className="painel-tabs-editor">
           {draft.order.map((id, index) => {
