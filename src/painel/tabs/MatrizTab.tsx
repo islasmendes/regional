@@ -252,28 +252,56 @@ export function MatrizTab({ stores }: Props) {
   }, [editor, editorStores, editableColumns, bulkExpanded])
 
   const editorTabOrder = useMemo(() => {
+    /**
+     * Grade visual no editor da sigla (Meta acima de Real):
+     *   Lado  = percorre a linha (Meta1→Meta2→… → Real1→Real2→…)
+     *   Baixo = desce a coluna (Meta1→Real1→Meta2→Real2→…)
+     * No bulk (só Real, várias lojas):
+     *   Lado  = ao longo da linha da loja
+     *   Baixo = descendo a coluna do KPI
+     */
+    if (editor?.mode === 'one') {
+      const metas: string[] = []
+      const reals: string[] = []
+      const vertical: string[] = []
+      for (const field of editorFields) {
+        if (field.kind === 'meta') metas.push(field.fieldId)
+        else reals.push(field.fieldId)
+      }
+      if (tabNav === 'lado') return [...metas, ...reals]
+      for (const kpi of editableColumns) {
+        const meta = editorFields.find((f) => f.kind === 'meta' && f.col === kpi.id)
+        const real = editorFields.find((f) => f.kind === 'real' && f.col === kpi.id)
+        if (meta) vertical.push(meta.fieldId)
+        if (real) vertical.push(real.fieldId)
+        if (bulkExpanded[kpi.id]) {
+          for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
+            const key = `${kpi.id}::${sub.id}`
+            const subMeta = editorFields.find((f) => f.kind === 'meta' && f.col === key)
+            const subReal = editorFields.find((f) => f.kind === 'real' && f.col === key)
+            if (subMeta) vertical.push(subMeta.fieldId)
+            if (subReal) vertical.push(subReal.fieldId)
+          }
+        }
+      }
+      return vertical
+    }
+
     if (tabNav === 'lado') return editorFields.map((f) => f.fieldId)
 
     const byCol = new Map<string, string[]>()
     for (const field of editorFields) {
-      const col = `${field.kind}:${field.col ?? field.group}`
+      const col = field.col ?? field.group
       const list = byCol.get(col) ?? []
       list.push(field.fieldId)
       byCol.set(col, list)
     }
     const ordered: string[] = []
     for (const kpi of editableColumns) {
-      if (editor?.mode === 'one' && needsMonthMeta(kpi.kind)) {
-        ordered.push(...(byCol.get(`meta:${kpi.id}`) ?? []))
-      }
-      ordered.push(...(byCol.get(`real:${kpi.id}`) ?? []))
+      ordered.push(...(byCol.get(kpi.id) ?? []))
       if (bulkExpanded[kpi.id]) {
         for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false && s.kind !== 'conversao')) {
-          const key = `${kpi.id}::${sub.id}`
-          if (editor?.mode === 'one' && needsMonthMeta(sub.kind)) {
-            ordered.push(...(byCol.get(`meta:${key}`) ?? []))
-          }
-          ordered.push(...(byCol.get(`real:${key}`) ?? []))
+          ordered.push(...(byCol.get(`${kpi.id}::${sub.id}`) ?? []))
         }
       }
     }
@@ -489,6 +517,64 @@ export function MatrizTab({ stores }: Props) {
     setEditor({ mode: 'bulk' })
   }
 
+  const patchLocalStoreData = (
+    sigla: string,
+    patch: {
+      meta?: { kpiId: string; subId?: string; valor: number }
+      real?: { kpiId: string; subId?: string; valor: number }
+    },
+  ) => {
+    setByStore((prev) => {
+      const current = prev[sigla] ?? { metas: {}, checks: {}, overrides: {} }
+      const metas = { ...current.metas }
+      const overrides = { ...current.overrides }
+
+      if (patch.meta) {
+        const { kpiId, subId, valor } = patch.meta
+        if (subId) {
+          const parent = { ...(metas[kpiId] ?? {}) }
+          const subs = { ...(parent.subs ?? {}) }
+          subs[subId] = {
+            ...(subs[subId] ?? {}),
+            valor,
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'painel',
+          }
+          metas[kpiId] = { ...parent, subs }
+        } else {
+          metas[kpiId] = {
+            ...(metas[kpiId] ?? {}),
+            valor,
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'painel',
+          }
+        }
+      }
+
+      if (patch.real) {
+        const { kpiId, subId, valor } = patch.real
+        if (subId) {
+          const parent = { ...(overrides[kpiId] ?? {}) }
+          const subs = { ...(parent.subs ?? {}) }
+          subs[subId] = { ...(subs[subId] ?? {}), valor }
+          overrides[kpiId] = { ...parent, subs }
+        } else {
+          overrides[kpiId] = {
+            ...(overrides[kpiId] ?? {}),
+            valor,
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'painel',
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        [sigla]: { ...current, metas, overrides },
+      }
+    })
+  }
+
   const saveEditor = async () => {
     if (!editor) return
     setBusy(true)
@@ -506,6 +592,7 @@ export function MatrizTab({ stores }: Props) {
             )
             if (meta != null) {
               await saveKpiMonthMeta({ sigla, monthKey, kpiId: kpi.id, valor: meta })
+              patchLocalStoreData(sigla, { meta: { kpiId: kpi.id, valor: meta } })
               wrote += 1
             }
           }
@@ -515,6 +602,7 @@ export function MatrizTab({ stores }: Props) {
           )
           if (real != null) {
             await saveKpiMonthResult({ sigla, monthKey, kpiId: kpi.id, valor: real })
+            patchLocalStoreData(sigla, { real: { kpiId: kpi.id, valor: real } })
             wrote += 1
           }
           for (const sub of (kpi.subs ?? []).filter((s) => s.ativo !== false)) {
@@ -533,6 +621,9 @@ export function MatrizTab({ stores }: Props) {
                   subId: sub.id,
                   valor: meta,
                 })
+                patchLocalStoreData(sigla, {
+                  meta: { kpiId: kpi.id, subId: sub.id, valor: meta },
+                })
                 wrote += 1
               }
             }
@@ -547,6 +638,9 @@ export function MatrizTab({ stores }: Props) {
                 kpiId: kpi.id,
                 subId: sub.id,
                 valor: subReal,
+              })
+              patchLocalStoreData(sigla, {
+                real: { kpiId: kpi.id, subId: sub.id, valor: subReal },
               })
               wrote += 1
             }
@@ -574,7 +668,11 @@ export function MatrizTab({ stores }: Props) {
   }
 
   const focusEditorField = (fieldId: string) => {
-    const el = editorFieldRefs.current[fieldId]
+    const el =
+      editorFieldRefs.current[fieldId] ??
+      (typeof document !== 'undefined'
+        ? (document.querySelector(`[data-editor-field="${fieldId}"]`) as HTMLInputElement | null)
+        : null)
     if (!el) return
     el.focus()
     el.select()
@@ -586,15 +684,19 @@ export function MatrizTab({ stores }: Props) {
     const index = order.indexOf(fieldId)
     if (index < 0 || order.length === 0) return
     event.preventDefault()
+    event.stopPropagation()
     const delta = event.shiftKey ? -1 : 1
     const nextIndex = (index + delta + order.length) % order.length
-    focusEditorField(order[nextIndex]!)
+    const nextId = order[nextIndex]!
+    // rAF: garante que o foco rode depois do ciclo atual do input
+    window.requestAnimationFrame(() => focusEditorField(nextId))
   }
 
   const bindEditorField = (fieldId: string) => ({
     ref: (el: HTMLInputElement | null) => {
       editorFieldRefs.current[fieldId] = el
     },
+    'data-editor-field': fieldId,
     onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => onEditorFieldKeyDown(event, fieldId),
   })
 
