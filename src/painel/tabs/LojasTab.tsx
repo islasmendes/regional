@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import {
   createStore,
   deleteStore,
+  formatStoreSummary,
+  reconcileStoreIndex,
   updateStorePassword,
 } from '../../firebase/stores'
 import type { StoreMeta } from '../../firebase/types'
@@ -24,8 +26,14 @@ export function LojasTab({ stores }: Props) {
     setStoreMessage(null)
     setBusyStore(true)
     try {
-      const created = await createStore(sigla, storePassword)
-      setStoreMessage(`Loja ${created.code} criada.`)
+      const result = await createStore(sigla, storePassword)
+      if (result.recovered) {
+        setStoreMessage(
+          `Sigla ${result.store.code} reativada sem apagar histórico (${formatStoreSummary(result.summary)}). Mês sem lançamento continua em branco na matriz.`,
+        )
+      } else {
+        setStoreMessage(`Loja ${result.store.code} criada.`)
+      }
       setSigla('')
       setStorePassword('')
     } catch (error) {
@@ -35,8 +43,31 @@ export function LojasTab({ stores }: Props) {
     }
   }
 
+  const onRepairIndex = async () => {
+    setStoreMessage(null)
+    setBusyStore(true)
+    try {
+      const { repaired, codes } = await reconcileStoreIndex()
+      if (repaired.length === 0) {
+        setStoreMessage(
+          `Índice ok · ${codes.length} sigla(s) no cadastro. Nenhuma órfã encontrada.`,
+        )
+      } else {
+        setStoreMessage(
+          `Recuperadas ${repaired.length} sigla(s) órfã(s): ${repaired.join(', ')}. KPIs/metas/reais preservados.`,
+        )
+      }
+    } catch (error) {
+      setStoreMessage(error instanceof Error ? error.message : 'Falha ao reparar índice.')
+    } finally {
+      setBusyStore(false)
+    }
+  }
+
   const onDeleteStore = async (code: string) => {
-    const confirmed = window.confirm(`Excluir a loja ${code} e todos os dados dela?`)
+    const confirmed = window.confirm(
+      `Excluir a loja ${code} e TODOS os dados dela (KPIs, metas, reais, checks)?`,
+    )
     if (!confirmed) return
     setStoreMessage(null)
     setBusyStore(true)
@@ -75,6 +106,10 @@ export function LojasTab({ stores }: Props) {
     <div className="painel-tab">
       <section className="painel-panel">
         <h3>Nova loja</h3>
+        <p className="painel-muted">
+          Se a sigla já existir no Firebase (órfã do índice), o formulário reativa a loja e
+          preserva KPIs, metas e reais por mês. Mês sem dado fica em branco.
+        </p>
         <form className="painel-form painel-form--row" onSubmit={(e) => void onCreateStore(e)}>
           <label>
             Sigla
@@ -99,7 +134,7 @@ export function LojasTab({ stores }: Props) {
             />
           </label>
           <button type="submit" className="painel-btn painel-btn--primary" disabled={busyStore}>
-            {busyStore ? 'Salvando…' : 'Criar loja'}
+            {busyStore ? 'Salvando…' : 'Criar / recuperar'}
           </button>
         </form>
       </section>
@@ -108,6 +143,17 @@ export function LojasTab({ stores }: Props) {
         <div className="painel-panel-head">
           <h3>Cadastradas</h3>
           <span className="painel-count">{stores.length}</span>
+        </div>
+        <div className="painel-store-actions" style={{ marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            className="painel-btn painel-btn--ghost"
+            disabled={busyStore}
+            onClick={() => void onRepairIndex()}
+            title="Reatacha no índice lojas que ainda existem em stores/ mas sumiram da lista"
+          >
+            Reparar cadastros
+          </button>
         </div>
         {storeMessage && <p className="painel-toast">{storeMessage}</p>}
         {stores.length === 0 ? (
