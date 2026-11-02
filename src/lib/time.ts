@@ -97,3 +97,49 @@ export function formatHhMm(totalMinutes: number): string {
 export function isValidHhMm(value: string): boolean {
   return parseHhMm(value) != null
 }
+
+/** Padrão do produto: Dom off, Seg–Sáb on (igual checkSchedule). */
+export function defaultBusinessWeekdays(): Record<string, boolean> {
+  const weekdays: Record<string, boolean> = {}
+  for (let d = 0; d <= 6; d += 1) weekdays[String(d)] = d !== 0
+  return weekdays
+}
+
+function weekdayIndexAt(timeZone: string, at: Date): WeekdayIndex {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+  }).formatToParts(at)
+  return weekdayMap[part(parts, 'weekday')] ?? 0
+}
+
+/**
+ * Dias úteis restantes no mês (inclui o dia corrente se ainda for útil).
+ * Mês passado → 0; mês futuro → todos os úteis do mês.
+ */
+export function countBusinessDaysRemaining(
+  monthKey: string,
+  weekdays: Record<string, boolean> = defaultBusinessWeekdays(),
+  timeZone = APP_TIMEZONE,
+  at = new Date(),
+): number {
+  const [y, m] = monthKey.split('-').map(Number)
+  if (!y || !m) return 0
+  const lastDay = new Date(y, m, 0).getDate()
+  const zoned = getZonedNow(timeZone, at)
+  let startDay = 1
+  if (zoned.monthKey === monthKey) {
+    startDay = zoned.day
+  } else if (zoned.monthKey > monthKey) {
+    return 0
+  }
+
+  let count = 0
+  for (let day = startDay; day <= lastDay; day += 1) {
+    // Meio-dia UTC-ish via Date local components interpreted in zone via weekdayAt
+    const probe = new Date(Date.UTC(y, m - 1, day, 15, 0, 0))
+    const wd = weekdayIndexAt(timeZone, probe)
+    if (weekdays[String(wd)] === true) count += 1
+  }
+  return count
+}

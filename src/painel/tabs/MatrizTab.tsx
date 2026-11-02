@@ -4,14 +4,14 @@ import {
   asFiniteNumber,
   cellForKpi,
   cellForSub,
+  dailyRitmoToHitMetaPct,
+  describeDailyRitmoToHit,
   describeProjPct,
-  describeRemainingToHit,
   formatMatrixNumber,
   formatMonthPaceLabel,
   formatPct,
   projTone,
   recentMonthKeys,
-  remainingToHitMetaPct,
   subscribeMonthCheckTotals,
   subscribeMonthMetasTree,
   subscribeMonthResults,
@@ -23,6 +23,7 @@ import {
 import { currentMonthKey, saveKpiMonthMeta, saveSubMonthMeta } from '../../firebase/metas'
 import { saveKpiMonthResult, saveSubMonthResult } from '../../firebase/results'
 import type { AlvoUnidade, StoreKpi, StoreMeta } from '../../firebase/types'
+import { countBusinessDaysRemaining } from '../../lib/time'
 import {
   INDICATOR_KIND_SHORT,
   alvoUnidadeShort,
@@ -88,10 +89,11 @@ function ritmoTone(gap: number | null): 'good' | 'warn' | 'bad' | 'empty' {
   return 'warn'
 }
 
-function formatRitmoGap(value: number | null): string {
+function formatRitmoDaily(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  const digits = Math.abs(value % 1) < 1e-9 ? 0 : 1
-  return formatMatrixNumber(value, digits)
+  if (Math.abs(value) < 1e-9) return '0'
+  if (Math.abs(value) >= 10) return formatMatrixNumber(value, 1)
+  return formatMatrixNumber(value, 2)
 }
 
 function CellStack({
@@ -142,8 +144,12 @@ function CellStack({
   const tone = projTone(cell.projPct)
   const projTitle = describeProjPct(cell.meta, cell.real, monthKey) ?? undefined
   const withRitmo = showRitmoTargets && cell.kind === 'volume'
-  const gap100 = withRitmo ? remainingToHitMetaPct(cell.meta, cell.real, 100) : null
-  const gap85 = withRitmo ? remainingToHitMetaPct(cell.meta, cell.real, 85) : null
+  const ritmo100 = withRitmo
+    ? dailyRitmoToHitMetaPct(cell.meta, cell.real, 100, monthKey)
+    : null
+  const ritmo85 = withRitmo
+    ? dailyRitmoToHitMetaPct(cell.meta, cell.real, 85, monthKey)
+    : null
   return (
     <div className={`matriz-cell matriz-cell--volume ${withRitmo ? 'matriz-cell--ritmo' : ''}`}>
       <div className="matriz-metric">
@@ -167,20 +173,20 @@ function CellStack({
         <>
           <div
             className="matriz-metric"
-            title={describeRemainingToHit(cell.meta, cell.real, 100) ?? undefined}
+            title={describeDailyRitmoToHit(cell.meta, cell.real, 100, monthKey) ?? undefined}
           >
             <span className="matriz-cell-label">p/100%</span>
-            <strong className={`matriz-ritmo is-${ritmoTone(gap100)}`}>
-              {formatRitmoGap(gap100)}
+            <strong className={`matriz-ritmo is-${ritmoTone(ritmo100)}`}>
+              {formatRitmoDaily(ritmo100)}
             </strong>
           </div>
           <div
             className="matriz-metric"
-            title={describeRemainingToHit(cell.meta, cell.real, 85) ?? undefined}
+            title={describeDailyRitmoToHit(cell.meta, cell.real, 85, monthKey) ?? undefined}
           >
             <span className="matriz-cell-label">p/85%</span>
-            <strong className={`matriz-ritmo is-${ritmoTone(gap85)}`}>
-              {formatRitmoGap(gap85)}
+            <strong className={`matriz-ritmo is-${ritmoTone(ritmo85)}`}>
+              {formatRitmoDaily(ritmo85)}
             </strong>
           </div>
         </>
@@ -830,6 +836,7 @@ export function MatrizTab({ stores }: Props) {
   }
 
   const paceLabel = formatMonthPaceLabel(monthKey)
+  const businessDaysLeft = countBusinessDaysRemaining(monthKey)
 
   return (
     <div className="painel-tab">
@@ -873,9 +880,10 @@ export function MatrizTab({ stores }: Props) {
 
           <span
             className="matriz-pace-chip"
-            title="Ritmo da Proj%: dias decorridos / dias do mês (America/Sao_Paulo). Proj% = (Real ÷ dias) × mês ÷ Meta × 100."
+            title="Proj% usa dias corridos. Ritmo p/100% e p/85% = (alvo − Real) ÷ dias úteis restantes (Seg–Sáb)."
           >
             {paceLabel}
+            {businessDaysLeft > 0 ? ` · ${businessDaysLeft} úteis` : ''}
           </span>
 
           <button
