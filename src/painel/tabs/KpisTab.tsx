@@ -103,7 +103,43 @@ function kindSummary(kind: IndicatorKind, alvoUnidade: AlvoUnidade | null | unde
     if (alvoUnidade === 'absolute') return 'Alvo · número absoluto'
     return 'Alvo · percentual (%)'
   }
-  return 'Volume · Meta/Real na Matriz'
+  return 'Volume · Meta/Real na Matriz (manual ok)'
+}
+
+function normalizeHexColor(value: string): string {
+  const raw = value.trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase()
+  if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+    const [, a, b, c] = raw
+    return `#${a}${a}${b}${b}${c}${c}`.toLowerCase()
+  }
+  return defaultKpiColor(0)
+}
+
+function ColorField({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (next: string) => void
+}) {
+  const color = normalizeHexColor(value)
+  return (
+    <label className="painel-color-label">
+      Cor
+      <div className="painel-color-field">
+        <span className="painel-color-swatch" style={{ background: color }} aria-hidden />
+        <input
+          className="painel-color-input"
+          type="color"
+          value={color}
+          onChange={(e) => onChange(normalizeHexColor(e.target.value))}
+          aria-label="Cor do KPI"
+        />
+        <span className="painel-color-hex">{color}</span>
+      </div>
+    </label>
+  )
 }
 
 function Toggle({
@@ -387,15 +423,15 @@ export function KpisTab({ stores }: Props) {
   }
 
   return (
-    <div className="painel-tab">
+    <div className="painel-tab painel-tab--kpis">
       <section className="painel-panel">
         <StoreScopeSelect stores={stores} value={scope} onChange={onChangeScope} />
       </section>
 
       <section className="painel-panel">
         <h3>{editingId ? 'Editar KPI-mãe' : 'Novo KPI-mãe'}</h3>
-        <form className="painel-form" onSubmit={(e) => void onSubmitKpi(e)}>
-          <div className="painel-form--row">
+        <form className="painel-form painel-form--compact" onSubmit={(e) => void onSubmitKpi(e)}>
+          <div className="painel-form--row painel-form--row-kpi">
             <label>
               Nome
               <input
@@ -406,14 +442,10 @@ export function KpisTab({ stores }: Props) {
                 minLength={2}
               />
             </label>
-            <label>
-              Cor
-              <input
-                type="color"
-                value={draft.cor}
-                onChange={(e) => setDraft((d) => ({ ...d, cor: e.target.value }))}
-              />
-            </label>
+            <ColorField
+              value={draft.cor}
+              onChange={(cor) => setDraft((d) => ({ ...d, cor }))}
+            />
           </div>
 
           <ThemeSelect
@@ -452,13 +484,19 @@ export function KpisTab({ stores }: Props) {
               label="Check-in"
               checked={draft.checkIn}
               onChange={(checkIn) => setDraft((d) => ({ ...d, checkIn }))}
+              hint="Opcional"
             />
             <Toggle
               label="Check-out"
               checked={draft.checkOut}
               onChange={(checkOut) => setDraft((d) => ({ ...d, checkOut }))}
+              hint="Opcional"
             />
           </div>
+          <p className="painel-muted painel-kpi-hint">
+            Check-in/out opcionais. Sem eles, Meta e Real entram manualmente na Matriz (clique na
+            sigla).
+          </p>
 
           {renderFormulaFields(
             draft.kind,
@@ -467,10 +505,6 @@ export function KpisTab({ stores }: Props) {
             (numRef) => setDraft((d) => ({ ...d, numRef })),
             (denRef) => setDraft((d) => ({ ...d, denRef })),
           )}
-
-          <p className="painel-muted">
-            Meta/Alvo mensal é lançado na Matriz, clicando na sigla da loja.
-          </p>
 
           <div className="painel-store-actions">
             <button
@@ -692,11 +726,13 @@ export function KpisTab({ stores }: Props) {
                             label="Check-in"
                             checked={subDraft.checkIn}
                             onChange={(checkIn) => setSubDraft((d) => ({ ...d, checkIn }))}
+                            hint="Opcional"
                           />
                           <Toggle
                             label="Check-out"
                             checked={subDraft.checkOut}
                             onChange={(checkOut) => setSubDraft((d) => ({ ...d, checkOut }))}
+                            hint="Opcional"
                           />
                         </div>
                         {renderFormulaFields(
