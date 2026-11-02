@@ -107,6 +107,11 @@
   gap: 0.45rem;
 }
 
+.painel-sidebar-toggle {
+  justify-content: flex-start;
+  width: 100%;
+}
+
 .painel-main {
   min-width: 0;
   display: grid;

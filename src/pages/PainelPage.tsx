@@ -174,8 +174,10 @@ export function PainelPage() {
             type="button"
             className="painel-btn painel-btn--ghost painel-sidebar-toggle"
             onClick={() => setSidebarOpen((v) => !v)}
+            aria-label={sidebarOpen ? 'Recolher menu' : 'Expandir menu'}
+            title={sidebarOpen ? 'Recolher' : 'Expandir'}
           >
-            {sidebarOpen ? '◂' : '▸'}
+            {sidebarOpen ? '◂ Recolher' : '▸'}
           </button>
           {sidebarOpen && (
             <button type="button" className="painel-btn painel-btn--ghost" onClick={() => void logout()}>
