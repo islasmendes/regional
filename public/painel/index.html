@@ -5,8 +5,10 @@
     <title>Regional Alta Performance</title>
     <script>
       (function () {
-        sessionStorage.setItem('regional-redirect', 'painel');
-        location.replace('/regional/index.html');
+        try {
+          sessionStorage.setItem('regional-redirect', 'painel');
+        } catch (e) {}
+        location.replace('/regional/?p=painel');
       })();
     </script>
   </head>

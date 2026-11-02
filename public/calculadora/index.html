@@ -2,11 +2,14 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>Regional Alta Performance</title>
+    <title>Calculadora · Regional</title>
     <script>
       (function () {
-        sessionStorage.setItem('regional-redirect', 'calculadora');
-        location.replace('/regional/index.html');
+        try {
+          sessionStorage.setItem('regional-redirect', 'calculadora');
+        } catch (e) {}
+        // ?p= sobrevive se sessionStorage falhar — rota pública, sem login.
+        location.replace('/regional/?p=calculadora');
       })();
     </script>
   </head>
