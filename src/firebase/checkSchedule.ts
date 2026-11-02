@@ -102,6 +102,19 @@ export async function saveCheckSchedule(
   return payload
 }
 
+/** Grava a mesma agenda em várias lojas (escopo TODOS). */
+export async function saveCheckScheduleForStores(
+  siglas: string[],
+  config: CheckScheduleConfig,
+): Promise<CheckScheduleConfig> {
+  if (siglas.length === 0) throw new Error('Nenhuma loja no escopo.')
+  let last = defaultCheckSchedule()
+  for (const sigla of siglas) {
+    last = await saveCheckSchedule(sigla, config)
+  }
+  return last
+}
+
 export type WindowStatus = {
   dayEnabled: boolean
   withinWindow: boolean
