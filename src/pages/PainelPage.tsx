@@ -3,6 +3,7 @@ import { useMasterAuth } from '../auth/MasterAuthContext'
 import { subscribeStores } from '../firebase/stores'
 import type { PainelTabsConfig, StoreMeta } from '../firebase/types'
 import { defaultTabsConfig, subscribeTabsConfig } from '../firebase/uiTabs'
+import { CalculadorasPanel } from '../calculadora/CalculadorasPanel'
 import { AbasTab } from '../painel/tabs/AbasTab'
 import { HorariosTab } from '../painel/tabs/HorariosTab'
 import { InicioTab } from '../painel/tabs/InicioTab'
@@ -201,6 +202,7 @@ export function PainelPage() {
           {activeTab === 'kpis' && <KpisTab stores={stores} />}
           {activeTab === 'horarios' && <HorariosTab stores={stores} />}
           {activeTab === 'matriz' && <MatrizTab stores={stores} />}
+          {activeTab === 'calculadora' && <CalculadorasPanel />}
           {activeTab === 'abas' && (
             <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
           )}

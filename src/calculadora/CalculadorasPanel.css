@@ -1,0 +1,241 @@
+.calc-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.calc-glossary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.calc-glossary h2,
+.calc-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.calc-glossary p,
+.calc-card p,
+.calc-hint {
+  margin: 0;
+  color: #93a4bd;
+  font-size: 0.9rem;
+}
+
+.calc-glossary-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.calc-glossary-item {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #243247;
+  border-radius: 0.85rem;
+  background: #0b1220aa;
+}
+
+.calc-glossary-item strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #ccfbf1;
+}
+
+.calc-glossary-item code {
+  display: block;
+  margin-top: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.45rem;
+  background: #070b14;
+  color: #5eead4;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.calc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.calc-nav a,
+.calc-nav button {
+  border: 1px solid #243247;
+  border-radius: 999px;
+  background: #111827;
+  color: #c5d0e0;
+  padding: 0.4rem 0.85rem;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.calc-nav a:hover,
+.calc-nav button:hover {
+  border-color: #0f766e;
+  color: #ccfbf1;
+}
+
+.calc-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+}
+
+.calc-card {
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  scroll-margin-top: 1rem;
+}
+
+.calc-fields {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+.calc-fields label {
+  display: grid;
+  gap: 0.35rem;
+  color: #93a4bd;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.calc-fields input {
+  width: 100%;
+  border: 1px solid #334155;
+  border-radius: 0.65rem;
+  background: #070b14;
+  color: #e8eef7;
+  padding: 0.65rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.calc-fields input:focus {
+  outline: 2px solid #0f766e88;
+  border-color: #14b8a6;
+}
+
+.calc-results {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.calc-result {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #243247;
+  border-radius: 0.75rem;
+  background: #0a101a;
+}
+
+.calc-result-label {
+  color: #93a4bd;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calc-result-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-result-hint {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.calc-result--positive .calc-result-value {
+  color: #5eead4;
+}
+
+.calc-result--negative .calc-result-value {
+  color: #fb7185;
+}
+
+.calc-result--warn .calc-result-value {
+  color: #fbbf24;
+}
+
+.calc-result--neutral .calc-result-value {
+  color: #e8eef7;
+}
+
+.calc-empty {
+  padding: 0.85rem;
+  border: 1px dashed #334155;
+  border-radius: 0.75rem;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.calc-ideas {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.calc-ideas ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #c5d0e0;
+}
+
+.calc-ideas li + li {
+  margin-top: 0.35rem;
+}
+
+.calc-page-shell {
+  min-height: 100dvh;
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background:
+    radial-gradient(1100px 520px at 0% -10%, #1e3a5f 0%, transparent 55%),
+    radial-gradient(800px 420px at 100% 0%, #0f766e22 0%, transparent 45%),
+    linear-gradient(165deg, #070b14 0%, #0b1220 50%, #111827 100%);
+  color: #e8eef7;
+}
+
+.calc-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.calc-page-header h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  letter-spacing: -0.02em;
+}
+
+.calc-page-header p {
+  margin: 0.25rem 0 0;
+  color: #93a4bd;
+}
+
+.calc-page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid #243247;
+  border-radius: 0.7rem;
+  background: #111827cc;
+  color: #ccfbf1;
+  padding: 0.55rem 0.85rem;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.calc-page-link:hover {
+  border-color: #0f766e;
+}
