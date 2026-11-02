@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
+  allocateEntityId,
   createStoreKpi,
   createStoreKpiSub,
   defaultKpiColor,
   deleteStoreKpi,
   deleteStoreKpiSub,
+  forEachStoreSigla,
   formulaLabel,
   formulaOptionsFromKpis,
   moveStoreKpi,
   operandToSelectValue,
   selectValueToOperand,
   subscribeStoreKpis,
-  updateStoreKpi,
-  updateStoreKpiSub,
+  upsertStoreKpi,
+  upsertStoreKpiSub,
 } from '../../firebase/kpis'
 import { currentMonthKey, saveKpiMonthMeta, saveSubMonthMeta, subscribeMonthMetas } from '../../firebase/metas'
 import type {
@@ -30,6 +32,15 @@ import {
   metaFieldLabel,
   needsMonthMeta,
 } from '../../firebase/types'
+import {
+  STORE_SCOPE_ALL,
+  canonicalSigla,
+  isStoreScopeAll,
+  resolveTargetSiglas,
+  storeScopeLabel,
+  type StoreScope,
+} from '../../lib/storeScope'
+import { StoreScopeSelect } from '../StoreScopeSelect'
 
 type Props = {
   stores: StoreMeta[]
@@ -128,7 +139,7 @@ function CheckFlags({ checkIn, checkOut }: { checkIn: boolean; checkOut: boolean
 }
 
 export function KpisTab({ stores }: Props) {
-  const [sigla, setSigla] = useState(stores[0]?.code ?? '')
+  const [scope, setScope] = useState<StoreScope>(STORE_SCOPE_ALL)
   const [kpis, setKpis] = useState<StoreKpi[]>([])
   const [metas, setMetas] = useState<
     Record<string, { valor?: number; subs?: Record<string, { valor?: number }> }>
@@ -142,32 +153,41 @@ export function KpisTab({ stores }: Props) {
   const [message, setMessage] = useState<string | null>(null)
 
   const monthKey = currentMonthKey()
+  const targets = useMemo(() => resolveTargetSiglas(scope, stores), [scope, stores])
+  const readSigla = useMemo(() => canonicalSigla(scope, stores), [scope, stores])
+  const scopeText = storeScopeLabel(scope, targets.length)
 
   useEffect(() => {
-    if (!sigla && stores[0]?.code) setSigla(stores[0].code)
-  }, [stores, sigla])
-
-  useEffect(() => {
-    if (!sigla) {
+    if (!readSigla) {
       setKpis([])
       return
     }
-    return subscribeStoreKpis(sigla, setKpis)
-  }, [sigla])
+    return subscribeStoreKpis(readSigla, setKpis)
+  }, [readSigla])
 
   useEffect(() => {
-    if (!sigla) {
+    if (!readSigla) {
       setMetas({})
       return
     }
-    return subscribeMonthMetas(sigla, monthKey, setMetas)
-  }, [sigla, monthKey])
+    return subscribeMonthMetas(readSigla, monthKey, setMetas)
+  }, [readSigla, monthKey])
 
   const formulaOptions = useMemo(() => formulaOptionsFromKpis(kpis), [kpis])
 
+  const onChangeScope = (next: StoreScope) => {
+    setScope(next)
+    setEditingId(null)
+    setDraft(emptyKpiDraft())
+    setExpandedId(null)
+    setEditingSubId(null)
+    setSubDraft(emptySubDraft())
+    setMessage(null)
+  }
+
   const onSubmitKpi = async (event: FormEvent) => {
     event.preventDefault()
-    if (!sigla) return
+    if (targets.length === 0) return
     setBusy(true)
     setMessage(null)
     try {
@@ -180,24 +200,25 @@ export function KpisTab({ stores }: Props) {
         checkOut: draft.checkOut,
         formula,
       }
-      let kpiId = editingId
+      const kpiId = editingId ?? allocateEntityId('k')
       if (editingId) {
-        await updateStoreKpi(sigla, editingId, payload)
+        await forEachStoreSigla(targets, (sigla) => upsertStoreKpi(sigla, editingId, payload))
       } else {
-        const created = await createStoreKpi(sigla, payload)
-        kpiId = created.id
+        await forEachStoreSigla(targets, (sigla) => createStoreKpi(sigla, { ...payload, id: kpiId }))
       }
 
       if (needsMonthMeta(draft.kind) && draft.metaMes.trim() !== '') {
         const valor = Number(draft.metaMes.replace(',', '.'))
         if (!Number.isFinite(valor)) throw new Error(`${metaFieldLabel(draft.kind)} do mês inválido.`)
-        await saveKpiMonthMeta({ sigla, monthKey, kpiId: kpiId!, valor })
+        await forEachStoreSigla(targets, (sigla) =>
+          saveKpiMonthMeta({ sigla, monthKey, kpiId, valor }),
+        )
       }
 
       setMessage(
         editingId
-          ? `KPI atualizado · ${monthKey}.`
-          : `KPI criado em stores/${sigla}/kpis/.`,
+          ? `KPI atualizado em ${scopeText} · ${monthKey}.`
+          : `KPI criado em ${scopeText}.`,
       )
       setDraft(emptyKpiDraft())
       setEditingId(null)
@@ -231,15 +252,16 @@ export function KpisTab({ stores }: Props) {
   }
 
   const onDeleteKpi = async (kpi: StoreKpi) => {
-    if (!sigla) return
-    if (!window.confirm(`Excluir o KPI "${kpi.nome}" e seus subindicadores?`)) return
+    if (targets.length === 0) return
+    const where = isStoreScopeAll(scope) ? 'em TODAS as lojas' : `em ${scope}`
+    if (!window.confirm(`Excluir o KPI "${kpi.nome}" ${where}?`)) return
     setBusy(true)
     setMessage(null)
     try {
-      await deleteStoreKpi(sigla, kpi.id)
+      await forEachStoreSigla(targets, (sigla) => deleteStoreKpi(sigla, kpi.id))
       if (editingId === kpi.id) onCancelKpi()
       if (expandedId === kpi.id) setExpandedId(null)
-      setMessage(`KPI ${kpi.nome} removido.`)
+      setMessage(`KPI ${kpi.nome} removido de ${scopeText}.`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao excluir KPI.')
     } finally {
@@ -247,9 +269,21 @@ export function KpisTab({ stores }: Props) {
     }
   }
 
+  const onMoveKpi = async (kpiId: string, direction: 'up' | 'down') => {
+    if (targets.length === 0) return
+    setBusy(true)
+    try {
+      await forEachStoreSigla(targets, (sigla) => moveStoreKpi(sigla, kpiId, direction))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao reordenar.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onSubmitSub = async (event: FormEvent, parent: StoreKpi) => {
     event.preventDefault()
-    if (!sigla) return
+    if (targets.length === 0) return
     setBusy(true)
     setMessage(null)
     try {
@@ -261,27 +295,32 @@ export function KpisTab({ stores }: Props) {
         checkOut: subDraft.checkOut,
         formula,
       }
-      let subId = editingSubId
+      const subId = editingSubId ?? allocateEntityId('s')
       if (editingSubId) {
-        await updateStoreKpiSub(sigla, parent.id, editingSubId, payload)
+        await forEachStoreSigla(targets, (sigla) =>
+          upsertStoreKpiSub(sigla, parent.id, editingSubId, payload),
+        )
       } else {
-        const created = await createStoreKpiSub(sigla, parent.id, payload)
-        subId = created.id
+        await forEachStoreSigla(targets, (sigla) =>
+          createStoreKpiSub(sigla, parent.id, { ...payload, id: subId }),
+        )
       }
 
       if (needsMonthMeta(subDraft.kind) && subDraft.metaMes.trim() !== '') {
         const valor = Number(subDraft.metaMes.replace(',', '.'))
         if (!Number.isFinite(valor)) throw new Error(`${metaFieldLabel(subDraft.kind)} do sub inválido.`)
-        await saveSubMonthMeta({
-          sigla,
-          monthKey,
-          kpiId: parent.id,
-          subId: subId!,
-          valor,
-        })
+        await forEachStoreSigla(targets, (sigla) =>
+          saveSubMonthMeta({
+            sigla,
+            monthKey,
+            kpiId: parent.id,
+            subId,
+            valor,
+          }),
+        )
       }
 
-      setMessage(`Subindicador salvo dentro de ${parent.nome}.`)
+      setMessage(`Subindicador salvo em ${scopeText} (dentro de ${parent.nome}).`)
       setSubDraft(emptySubDraft())
       setEditingSubId(null)
     } catch (error) {
@@ -379,31 +418,13 @@ export function KpisTab({ stores }: Props) {
         <h2>KPIs</h2>
         <p>
           KPI-mãe + subindicadores. Cada um com tipo próprio (volume / conversão / alvo) e IN/OUT
-          independentes. Meta/alvo grava no mês <strong>{monthKey}</strong>.
+          independentes. Meta/alvo grava no mês <strong>{monthKey}</strong>. Padrão:{' '}
+          <strong>TODOS</strong> as lojas.
         </p>
       </header>
 
       <section className="painel-panel">
-        <label>
-          Loja
-          <select
-            value={sigla}
-            onChange={(e) => {
-              setSigla(e.target.value)
-              onCancelKpi()
-              setExpandedId(null)
-              setEditingSubId(null)
-              setSubDraft(emptySubDraft())
-              setMessage(null)
-            }}
-          >
-            {stores.map((store) => (
-              <option key={store.code} value={store.code}>
-                {store.code}
-              </option>
-            ))}
-          </select>
-        </label>
+        <StoreScopeSelect stores={stores} value={scope} onChange={onChangeScope} />
       </section>
 
       <section className="painel-panel">
@@ -503,8 +524,16 @@ export function KpisTab({ stores }: Props) {
           )}
 
           <div className="painel-store-actions">
-            <button type="submit" className="painel-btn painel-btn--primary" disabled={busy || !sigla}>
-              {busy ? 'Salvando…' : editingId ? 'Salvar KPI' : 'Criar KPI'}
+            <button
+              type="submit"
+              className="painel-btn painel-btn--primary"
+              disabled={busy || targets.length === 0}
+            >
+              {busy
+                ? 'Salvando…'
+                : editingId
+                  ? `Salvar KPI (${scopeText})`
+                  : `Criar KPI (${scopeText})`}
             </button>
             {editingId && (
               <button type="button" className="painel-btn painel-btn--ghost" onClick={onCancelKpi}>
@@ -518,7 +547,12 @@ export function KpisTab({ stores }: Props) {
 
       <section className="painel-panel">
         <div className="painel-panel-head">
-          <h3>Indicadores — {sigla || '—'}</h3>
+          <h3>
+            Indicadores —{' '}
+            {isStoreScopeAll(scope)
+              ? `TODOS (preview ${readSigla ?? '—'})`
+              : scope}
+          </h3>
           <span className="painel-count">{kpis.length}</span>
         </div>
         {kpis.length === 0 ? (
@@ -560,7 +594,7 @@ export function KpisTab({ stores }: Props) {
                       type="button"
                       className="painel-btn painel-btn--ghost"
                       disabled={busy || index === 0}
-                      onClick={() => void moveStoreKpi(sigla, kpi.id, 'up')}
+                      onClick={() => void onMoveKpi(kpi.id, 'up')}
                     >
                       ↑
                     </button>
@@ -568,7 +602,7 @@ export function KpisTab({ stores }: Props) {
                       type="button"
                       className="painel-btn painel-btn--ghost"
                       disabled={busy || index === kpis.length - 1}
-                      onClick={() => void moveStoreKpi(sigla, kpi.id, 'down')}
+                      onClick={() => void onMoveKpi(kpi.id, 'down')}
                     >
                       ↓
                     </button>
@@ -630,7 +664,34 @@ export function KpisTab({ stores }: Props) {
                                   type="button"
                                   className="painel-btn painel-btn--danger"
                                   disabled={busy}
-                                  onClick={() => void deleteStoreKpiSub(sigla, kpi.id, sub.id)}
+                                  onClick={() => {
+                                    void (async () => {
+                                      if (
+                                        !window.confirm(
+                                          `Excluir sub "${sub.nome}" ${
+                                            isStoreScopeAll(scope) ? 'em TODAS as lojas' : `em ${scope}`
+                                          }?`,
+                                        )
+                                      ) {
+                                        return
+                                      }
+                                      setBusy(true)
+                                      try {
+                                        await forEachStoreSigla(targets, (s) =>
+                                          deleteStoreKpiSub(s, kpi.id, sub.id),
+                                        )
+                                        setMessage(`Sub removido de ${scopeText}.`)
+                                      } catch (error) {
+                                        setMessage(
+                                          error instanceof Error
+                                            ? error.message
+                                            : 'Falha ao excluir sub.',
+                                        )
+                                      } finally {
+                                        setBusy(false)
+                                      }
+                                    })()
+                                  }}
                                 >
                                   Excluir
                                 </button>
