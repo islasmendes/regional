@@ -51,10 +51,16 @@ function KpiCard({ label, value, tone = 'neutral', sub }: KpiCardProps) {
   )
 }
 
-function toneAtingimento(att: number | null): ResultTone {
-  if (att === null) return 'neutral'
-  if (att >= 100) return 'positive'
-  if (att >= 95) return 'warn'
+/** Normal: ≥100% bom. Inverso (menor=melhor): ≥100% = estourou a meta. */
+function toneMetaRatio(ratioPct: number | null, inverso: boolean): ResultTone {
+  if (ratioPct === null) return 'neutral'
+  if (inverso) {
+    if (ratioPct <= 100) return 'positive'
+    if (ratioPct <= 105) return 'warn'
+    return 'negative'
+  }
+  if (ratioPct >= 100) return 'positive'
+  if (ratioPct >= 95) return 'warn'
   return 'negative'
 }
 
@@ -65,34 +71,36 @@ function buildBlockCards(opts: {
   real: number | null
   yoy: number | null
   mode: 'pct' | 'abs'
+  inverso: boolean
 }): KpiCardProps[] {
-  const { prefix, meta, real, yoy, mode } = opts
+  const { prefix, meta, real, yoy, mode, inverso } = opts
   if (meta === null || real === null) return []
 
-  const att = atingimento(real, meta)
+  const ratio = atingimento(real, meta)
   const variacao = mode === 'pct' ? pontosPercentuais(real, meta) : real - meta
   const cresc = crescimentoRelativo(real, meta)
   const varSuffix = mode === 'pct' ? ' p.p.' : ''
+
   const out: KpiCardProps[] = [
     {
       id: `${prefix}-att`,
-      label: 'Atingimento',
-      value: att === null ? '—' : formatPlain(att, 1, '%'),
-      tone: toneAtingimento(att),
-      sub: 'Real ÷ Meta',
+      label: inverso ? 'Estouro' : 'Atingimento',
+      value: ratio === null ? '—' : formatPlain(ratio, 1, '%'),
+      tone: toneMetaRatio(ratio, inverso),
+      sub: inverso ? 'Real ÷ Meta · menor = melhor' : 'Real ÷ Meta',
     },
     {
       id: `${prefix}-var`,
       label: 'Variação',
       value: formatSigned(variacao, 2, varSuffix),
-      tone: toneFromSigned(variacao),
+      tone: toneFromSigned(variacao, inverso),
       sub: mode === 'pct' ? 'Real − Meta (p.p.)' : 'Real − Meta (nº)',
     },
     {
       id: `${prefix}-cresc`,
       label: 'Crescimento',
       value: cresc === null ? '—' : formatSigned(cresc, 2, '%'),
-      tone: toneFromSigned(cresc),
+      tone: toneFromSigned(cresc, inverso),
       sub: '(Real − Meta) ÷ Meta',
     },
   ]
@@ -105,14 +113,14 @@ function buildBlockCards(opts: {
         id: `${prefix}-var-yoy`,
         label: 'Variação YoY',
         value: formatSigned(varYoY, 2, varSuffix),
-        tone: toneFromSigned(varYoY),
+        tone: toneFromSigned(varYoY, inverso),
         sub: mode === 'pct' ? 'Real − Ano ant. (p.p.)' : 'Real − Ano ant. (nº)',
       },
       {
         id: `${prefix}-cresc-yoy`,
         label: 'Crescimento YoY',
         value: crescYoY === null ? '—' : formatSigned(crescYoY, 2, '%'),
-        tone: toneFromSigned(crescYoY),
+        tone: toneFromSigned(crescYoY, inverso),
         sub: '(Real − Ano ant.) ÷ Ano ant.',
       },
     )
@@ -122,6 +130,7 @@ function buildBlockCards(opts: {
 }
 
 export function CalculadorasPanel() {
+  const [inverso, setInverso] = useState(false)
   const [metaPct, setMetaPct] = useState('55')
   const [realPct, setRealPct] = useState('53.8')
   const [yoyPct, setYoyPct] = useState('')
@@ -137,8 +146,9 @@ export function CalculadorasPanel() {
         real: parseLocaleNumber(realPct),
         yoy: parseLocaleNumber(yoyPct),
         mode: 'pct',
+        inverso,
       }),
-    [metaPct, realPct, yoyPct],
+    [metaPct, realPct, yoyPct, inverso],
   )
 
   const absCards = useMemo(
@@ -149,14 +159,30 @@ export function CalculadorasPanel() {
         real: parseLocaleNumber(realAbs),
         yoy: parseLocaleNumber(yoyAbs),
         mode: 'abs',
+        inverso,
       }),
-    [metaAbs, realAbs, yoyAbs],
+    [metaAbs, realAbs, yoyAbs, inverso],
   )
 
   const hasAny = pctCards.length > 0 || absCards.length > 0
 
   return (
     <div className="calc-panel">
+      <div className="calc-toolbar">
+        <button
+          type="button"
+          className={`calc-toggle ${inverso ? 'is-on' : ''}`}
+          onClick={() => setInverso((v) => !v)}
+          aria-pressed={inverso}
+        >
+          <span className="calc-toggle-dot" aria-hidden />
+          Inverso
+          <span className="calc-toggle-hint">
+            {inverso ? 'quanto menor, melhor' : 'quanto maior, melhor'}
+          </span>
+        </button>
+      </div>
+
       <section className="calc-bar" aria-label="Entradas">
         <div className="calc-bar-group">
           <span className="calc-bar-title">Percentual</span>
@@ -170,9 +196,9 @@ export function CalculadorasPanel() {
         <div className="calc-bar-group">
           <span className="calc-bar-title">Número absoluto</span>
           <div className="calc-bar-fields calc-bar-fields--3">
-            <InputCell label="Meta nº" value={metaAbs} onChange={setMetaAbs} placeholder="1000" />
-            <InputCell label="Real nº" value={realAbs} onChange={setRealAbs} placeholder="920" />
-            <InputCell label="YoY nº" value={yoyAbs} onChange={setYoyAbs} placeholder="800" />
+            <InputCell label="Meta nº" value={metaAbs} onChange={setMetaAbs} placeholder="5" />
+            <InputCell label="Real nº" value={realAbs} onChange={setRealAbs} placeholder="10" />
+            <InputCell label="YoY nº" value={yoyAbs} onChange={setYoyAbs} placeholder="8" />
           </div>
         </div>
       </section>
