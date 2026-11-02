@@ -282,12 +282,8 @@ export function MatrizTab({ stores }: Props) {
   if (stores.length === 0) {
     return (
       <div className="painel-tab">
-        <header className="painel-tab-head">
-          <h2>Matriz</h2>
-          <p>Cadastre lojas e KPIs para montar a matriz.</p>
-        </header>
         <section className="painel-panel">
-          <p className="painel-muted">Nenhuma loja ainda.</p>
+          <p className="painel-muted">Cadastre lojas e KPIs para montar a matriz.</p>
         </section>
       </div>
     )
@@ -338,14 +334,6 @@ export function MatrizTab({ stores }: Props) {
 
   return (
     <div className="painel-tab">
-      <header className="painel-tab-head">
-        <h2>Matriz</h2>
-        <p>
-          Clique na <strong>sigla</strong> para lançar Real (e Meta/Alvo). Real do painel sobrescreve
-          o check-out. Use o layout Lado/Baixo conforme a tela.
-        </p>
-      </header>
-
       <section className="painel-panel matriz-toolbar">
         <div className="matriz-toolbar-row">
           <ThemeSelect
@@ -389,16 +377,12 @@ export function MatrizTab({ stores }: Props) {
             Atualizar todas
           </button>
         </div>
-        <p className="painel-hint">
-          Mês <strong>{monthKey}</strong> · catálogo {catalogSigla || '—'} · {columns.length} KPI(s)
-          · {activeStores.length} loja(s)
-        </p>
         {message && <p className="painel-toast">{message}</p>}
       </section>
 
       {columns.length === 0 ? (
         <section className="painel-panel">
-          <p className="painel-muted">Nenhum KPI ativo. Cadastre na aba KPIs (escopo TODOS).</p>
+          <p className="painel-muted">Nenhum KPI ativo. Cadastre na aba KPIs.</p>
         </section>
       ) : layout === 'baixo' ? (
         <div className="matriz-stack">
@@ -555,12 +539,6 @@ export function MatrizTab({ stores }: Props) {
                 options={activeStores.map((s) => ({ value: s.code, label: s.code }))}
               />
             )}
-
-            <p className="painel-hint">
-              Preencha <strong>Meta/Alvo</strong> e <strong>Real</strong>. Real grava em{' '}
-              <code>results/{monthKey}</code> e sobrescreve o checkout na matriz.
-              {editor.mode === 'all' ? ' Ao salvar, replica os mesmos valores em todas as lojas.' : ''}
-            </p>
 
             <div className="matriz-editor-list">
               {columns

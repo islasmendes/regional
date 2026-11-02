@@ -70,8 +70,8 @@ export function HorariosTab({ stores }: Props) {
       setCloudStamp(saved.updatedAt)
       setMessage(
         isStoreScopeAll(scope)
-          ? `Agenda salva em todas as ${targets.length} lojas (config/checkSchedule).`
-          : `Agenda salva em stores/${scope}/config/checkSchedule.`,
+          ? `Agenda salva em todas as ${targets.length} lojas.`
+          : `Agenda salva em ${scope}.`,
       )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Falha ao salvar horários.')
@@ -83,14 +83,8 @@ export function HorariosTab({ stores }: Props) {
   if (stores.length === 0) {
     return (
       <div className="painel-tab">
-        <header className="painel-tab-head">
-          <h2>Horários</h2>
-          <p>Cadastre uma loja antes de definir a agenda de checks.</p>
-        </header>
         <section className="painel-panel">
-          <p className="painel-muted">
-            Nenhuma loja em <code>stores/</code>.
-          </p>
+          <p className="painel-muted">Cadastre uma loja antes de definir a agenda.</p>
         </section>
       </div>
     )
@@ -98,26 +92,12 @@ export function HorariosTab({ stores }: Props) {
 
   return (
     <div className="painel-tab">
-      <header className="painel-tab-head">
-        <h2>Horários</h2>
-        <p>
-          Janelas de check-in / check-out e dias ativos. Padrão: <strong>TODOS</strong> — a mesma
-          agenda em todas as lojas (escolha uma sigla só para exceção).
-        </p>
-      </header>
-
       <section className="painel-panel">
         <StoreScopeSelect stores={stores} value={scope} onChange={setScope} />
       </section>
 
       <section className="painel-panel">
         <h3>Dias da semana</h3>
-        <p className="painel-hint" style={{ marginTop: 0 }}>
-          Toque nos cards para ativar / desativar o dia.
-          {isStoreScopeAll(scope) && readSigla
-            ? ` Preview carregado de ${readSigla}; ao salvar, replica em ${scopeText}.`
-            : ''}
-        </p>
         <div className="horario-day-grid" role="group" aria-label="Dias da semana">
           {WEEKDAY_LABELS.map((day) => {
             const on = draft.weekdays[String(day.id)] === true

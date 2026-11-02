@@ -25,7 +25,7 @@ export function LojasTab({ stores }: Props) {
     setBusyStore(true)
     try {
       const created = await createStore(sigla, storePassword)
-      setStoreMessage(`Loja ${created.code} criada. Pasta isolada em stores/${created.code}/.`)
+      setStoreMessage(`Loja ${created.code} criada.`)
       setSigla('')
       setStorePassword('')
     } catch (error) {
@@ -36,9 +36,7 @@ export function LojasTab({ stores }: Props) {
   }
 
   const onDeleteStore = async (code: string) => {
-    const confirmed = window.confirm(
-      `Excluir a loja ${code}? Remove stores/${code}/ (meta, checks, resultados) e o índice da sigla.`,
-    )
+    const confirmed = window.confirm(`Excluir a loja ${code} e todos os dados dela?`)
     if (!confirmed) return
     setStoreMessage(null)
     setBusyStore(true)
@@ -75,11 +73,6 @@ export function LojasTab({ stores }: Props) {
 
   return (
     <div className="painel-tab">
-      <header className="painel-tab-head">
-        <h2>Lojas</h2>
-        <p>Sigla única (VC…). Tudo da loja fica sob <code>stores/{'{SIGLA}'}/</code>.</p>
-      </header>
-
       <section className="painel-panel">
         <h3>Nova loja</h3>
         <form className="painel-form painel-form--row" onSubmit={(e) => void onCreateStore(e)}>
@@ -109,9 +102,6 @@ export function LojasTab({ stores }: Props) {
             {busyStore ? 'Salvando…' : 'Criar loja'}
           </button>
         </form>
-        <p className="painel-hint">
-          Sem repetição de sigla. Login do gestor em <code>/performance</code>.
-        </p>
       </section>
 
       <section className="painel-panel">
@@ -128,10 +118,7 @@ export function LojasTab({ stores }: Props) {
               <li key={store.code} className="painel-store-item">
                 <div>
                   <strong>{store.code}</strong>
-                  <span className="painel-muted">
-                    {store.active ? 'ativa' : 'inativa'} · pasta{' '}
-                    <code>stores/{store.code}/</code>
-                  </span>
+                  <span className="painel-muted">{store.active ? 'ativa' : 'inativa'}</span>
                 </div>
                 <div className="painel-store-actions">
                   <button

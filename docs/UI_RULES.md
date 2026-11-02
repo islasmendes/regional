@@ -19,3 +19,9 @@
 - **Proibido** `<select>` nativo, `<input type="time|date">` e pickers do browser em telas do produto.
 - Usar `ThemeSelect`, `ThemeTimeField`, `ThemeFlags` em `src/ui/`.
 - Novos campos de escolha / hora / calendário **devem** nascer no tema Regional.
+
+## 4. Copy do painel
+
+- Título da aba só no header do `PainelPage` — **não** repetir `h2` com o mesmo nome dentro da aba.
+- Sem autoexplicações longas (“Linhas = lojas…”, “Padrão TODOS — …”).
+- Sem caminhos internos no frontend (`stores/{SIGLA}/…`, `results/…`, `master/ui/tabs`).

@@ -28,7 +28,6 @@ import {
   INDICATOR_KIND_LABELS,
   INDICATOR_KIND_SHORT,
   defaultChecksForKind,
-  matrixColumnsForKind,
   metaFieldLabel,
   needsMonthMeta,
 } from '../../firebase/types'
@@ -348,10 +347,6 @@ export function KpisTab({ stores }: Props) {
     if (kind !== 'conversao') return null
     return (
       <div className="painel-formula-box">
-        <p className="painel-hint">
-          Selecione o que divide o quê (ex.: Agendamentos ÷ Leads). A matriz mostra só o cálculo —
-          sem Meta/Real/Proj%.
-        </p>
         <div className="painel-form--row">
           <ThemeSelect
             label="Numerador"
@@ -384,14 +379,8 @@ export function KpisTab({ stores }: Props) {
   if (stores.length === 0) {
     return (
       <div className="painel-tab">
-        <header className="painel-tab-head">
-          <h2>KPIs</h2>
-          <p>Cadastre uma loja antes de criar indicadores.</p>
-        </header>
         <section className="painel-panel">
-          <p className="painel-muted">
-            Nenhuma loja em <code>stores/</code>.
-          </p>
+          <p className="painel-muted">Cadastre uma loja antes de criar indicadores.</p>
         </section>
       </div>
     )
@@ -399,15 +388,6 @@ export function KpisTab({ stores }: Props) {
 
   return (
     <div className="painel-tab">
-      <header className="painel-tab-head">
-        <h2>KPIs</h2>
-        <p>
-          KPI-mãe + subindicadores. Cada um com tipo próprio (volume / conversão / alvo) e IN/OUT
-          independentes. Meta/alvo grava no mês <strong>{monthKey}</strong>. Padrão:{' '}
-          <strong>TODOS</strong> as lojas.
-        </p>
-      </header>
-
       <section className="painel-panel">
         <StoreScopeSelect stores={stores} value={scope} onChange={onChangeScope} />
       </section>
@@ -457,32 +437,18 @@ export function KpisTab({ stores }: Props) {
               label: INDICATOR_KIND_LABELS[kind],
             }))}
           />
-          <p className="painel-hint">Colunas na matriz: {matrixColumnsForKind(draft.kind).join(' · ')}</p>
-
           <div className="painel-kpi-flags">
             <Toggle
               label="Check-in"
-              hint="Lança planejado (IN)"
               checked={draft.checkIn}
               onChange={(checkIn) => setDraft((d) => ({ ...d, checkIn }))}
             />
             <Toggle
               label="Check-out"
-              hint="Lança realizado (OUT / Real)"
               checked={draft.checkOut}
               onChange={(checkOut) => setDraft((d) => ({ ...d, checkOut }))}
             />
           </div>
-          {draft.kind === 'conversao' && (
-            <p className="painel-hint">
-              Conversão costuma ficar com IN/OUT desligados — o valor é calculado pela fórmula.
-            </p>
-          )}
-          {draft.kind === 'alvo' && (
-            <p className="painel-hint">
-              Alvo (ex.: NPS): matriz mostra Alvo · Real. Real vem do check-out quando ativo.
-            </p>
-          )}
 
           {renderFormulaFields(
             draft.kind,
@@ -608,10 +574,6 @@ export function KpisTab({ stores }: Props) {
                   {open && (
                     <div className="painel-kpi-subs">
                       <h4>Subindicadores de {kpi.nome}</h4>
-                      <p className="painel-hint">
-                        Tipo e IN/OUT próprios — não precisam seguir o KPI-mãe. Ex.: Conversão
-                        dentro de Agendamentos.
-                      </p>
 
                       {(kpi.subs ?? []).length === 0 ? (
                         <p className="painel-muted">Nenhum sub ainda.</p>
@@ -720,13 +682,11 @@ export function KpisTab({ stores }: Props) {
                         <div className="painel-kpi-flags">
                           <Toggle
                             label="Check-in"
-                            hint="Só neste sub"
                             checked={subDraft.checkIn}
                             onChange={(checkIn) => setSubDraft((d) => ({ ...d, checkIn }))}
                           />
                           <Toggle
                             label="Check-out"
-                            hint="Só neste sub"
                             checked={subDraft.checkOut}
                             onChange={(checkOut) => setSubDraft((d) => ({ ...d, checkOut }))}
                           />
