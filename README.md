@@ -6,6 +6,7 @@ App **loja-cêntrico**: o painel cadastra lojas; o gestor faz check-in/out em `/
 
 - Painel admin: https://islasmendes.github.io/regional/painel
 - App do gestor: https://islasmendes.github.io/regional/performance
+- Calculadora: https://islasmendes.github.io/regional/calculadora
 
 ### Publicar
 

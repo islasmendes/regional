@@ -18,8 +18,9 @@ Tudo que for feature daqui pra frente entra **nesta branch/PR**, até decidirmos
 
 1. Controles no tema (select / hora / flags) — sem nativos ✅
 2. Aba **Matriz** (lojas × KPIs) ✅
-3. Override de resultado no painel + acuracidade
-4. Blocos de aderência
+3. **Calculadora** (`/calculadora` + aba no sidebar) — meta/real/YoY, p.p. vs crescimento ✅
+4. Override de resultado no painel + acuracidade
+5. Blocos de aderência
 
 ## Modelo de indicador
 
