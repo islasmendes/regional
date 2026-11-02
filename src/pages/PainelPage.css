@@ -272,10 +272,19 @@
   gap: 0.85rem;
 }
 
+.painel-form--compact {
+  gap: 0.55rem;
+}
+
 .painel-form--row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: 0.75rem;
+  align-items: end;
+}
+
+.painel-form--row-kpi {
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
 }
 
@@ -299,6 +308,72 @@
   padding: 0.7rem 0.8rem;
 }
 
+.painel-form--compact input,
+.painel-form--compact select {
+  padding: 0.48rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.92rem;
+}
+
+.painel-color-label {
+  min-width: 9.5rem;
+}
+
+.painel-color-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.15rem;
+}
+
+.painel-color-swatch {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.45rem;
+  border: 1px solid #475569;
+  box-shadow: inset 0 0 0 1px #0006;
+  flex: 0 0 auto;
+}
+
+.painel-form input.painel-color-input,
+.painel-color-input {
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  padding: 0;
+  border: 1px solid #334155;
+  border-radius: 0.45rem;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.painel-color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.painel-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 0.3rem;
+}
+
+.painel-color-input::-moz-color-swatch {
+  border: none;
+  border-radius: 0.3rem;
+}
+
+.painel-color-hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.painel-kpi-hint {
+  margin: -0.15rem 0 0;
+  font-size: 0.8rem;
+}
+
 .painel-panel > label {
   display: grid;
   gap: 0.35rem;
@@ -317,22 +392,54 @@
 .painel-kpi-flags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.45rem;
 }
 
 .painel-toggle {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  min-width: 11rem;
-  padding: 0.65rem 0.8rem;
-  border-radius: 0.85rem;
+  gap: 0.5rem;
+  min-width: 8.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.55rem;
   border: 1px solid #334155;
   background: #0b1220;
   color: #e2e8f0;
   text-align: left;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.painel-tab--kpis .painel-panel {
+  margin-bottom: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.75rem;
+}
+
+.painel-tab--kpis .painel-panel h3 {
+  margin-bottom: 0.5rem;
+  font-size: 0.98rem;
+}
+
+.painel-tab--kpis .painel-store-list {
+  gap: 0.4rem;
+}
+
+.painel-tab--kpis .painel-store-item,
+.painel-tab--kpis .painel-kpi-block {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+}
+
+.painel-tab--kpis .painel-kpi-subs {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  gap: 0.45rem;
+}
+
+.painel-tab--kpis .painel-btn {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.86rem;
 }
 
 .painel-toggle.is-on {
@@ -342,8 +449,8 @@
 
 .painel-toggle-track {
   position: relative;
-  width: 2.4rem;
-  height: 1.3rem;
+  width: 2rem;
+  height: 1.1rem;
   border-radius: 999px;
   background: #334155;
   flex: 0 0 auto;
@@ -355,31 +462,31 @@
 
 .painel-toggle-thumb {
   position: absolute;
-  top: 0.15rem;
-  left: 0.15rem;
-  width: 1rem;
-  height: 1rem;
+  top: 0.12rem;
+  left: 0.12rem;
+  width: 0.85rem;
+  height: 0.85rem;
   border-radius: 999px;
   background: #f8fafc;
   transition: transform 0.15s ease;
 }
 
 .painel-toggle.is-on .painel-toggle-thumb {
-  transform: translateX(1.1rem);
+  transform: translateX(0.9rem);
 }
 
 .painel-toggle-copy {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.05rem;
 }
 
 .painel-toggle-copy strong {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .painel-toggle-copy small {
   color: #93a4bd;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 
 .painel-formula-box {

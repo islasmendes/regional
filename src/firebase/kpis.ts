@@ -73,16 +73,9 @@ function normalizeFormula(raw: unknown): ConversionFormula | null {
   }
 }
 
-function validateChecks(kind: IndicatorKind, checkIn: boolean, checkOut: boolean): void {
-  if (kind === 'volume' && !checkIn && !checkOut) {
-    throw new Error('Volume: ative check-in e/ou check-out (ou mude o tipo).')
-  }
-  if (kind === 'conversao' && (checkIn || checkOut)) {
-    // permitido, mas avisa via UI; não bloqueia — user may want rare cases
-  }
-  if (kind === 'conversao') {
-    // formula validated separately
-  }
+/** Check-in/out são opcionais — Volume pode ter só Meta/Real manual na Matriz. */
+function validateChecks(_kind: IndicatorKind, _checkIn: boolean, _checkOut: boolean): void {
+  // sem bloqueio: flags só controlam presença no checkout do gestor
 }
 
 function validateFormula(kind: IndicatorKind, formula: ConversionFormula | null): void {
@@ -345,9 +338,6 @@ function buildSubPayload(
           input.alvoUnidade !== undefined ? input.alvoUnidade : current?.alvoUnidade,
         )
       : null
-  if (kind === 'volume' && !checkIn && !checkOut) {
-    throw new Error('Sub volume: ative check-in e/ou check-out, ou use tipo conversão/alvo.')
-  }
   if (kind === 'alvo' && !alvoUnidade) {
     throw new Error('Sub alvo: selecione a unidade (%, absoluto ou só evidenciar).')
   }
