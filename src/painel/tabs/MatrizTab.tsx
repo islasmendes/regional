@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { listStoreKpis, subscribeStoreKpis } from '../../firebase/kpis'
+import { subscribeStoreKpis } from '../../firebase/kpis'
 import {
   asFiniteNumber,
   cellForKpi,
@@ -34,6 +34,23 @@ type StoreMatrixData = {
   metas: MatrixMetaTree
   checks: MonthCheckTotals
   overrides: MonthResultOverride
+}
+
+/** União ao vivo dos KPIs das lojas — some da matriz só quando não existe mais em nenhuma. */
+function mergeKpiCatalog(
+  kpisByStore: Record<string, StoreKpi[]>,
+  codes: string[],
+): StoreKpi[] {
+  const byId = new Map<string, StoreKpi>()
+  for (const code of codes) {
+    for (const kpi of kpisByStore[code] ?? []) {
+      if (kpi.ativo === false) continue
+      if (!byId.has(kpi.id)) byId.set(kpi.id, kpi)
+    }
+  }
+  return [...byId.values()].sort(
+    (a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome, 'pt-BR'),
+  )
 }
 
 type TabNavMode = 'lado' | 'baixo'
@@ -154,7 +171,7 @@ function metricsForKind(
 export function MatrizTab({ stores }: Props) {
   const monthOptions = useMemo(() => recentMonthKeys(8), [])
   const [monthKey, setMonthKey] = useState(() => currentMonthKey())
-  const [columns, setColumns] = useState<StoreKpi[]>([])
+  const [kpisByStore, setKpisByStore] = useState<Record<string, StoreKpi[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   /** Visões isoladas: um listener/escrita nunca apaga a outra. */
   const [metasByStore, setMetasByStore] = useState<Record<string, MatrixMetaTree>>({})
@@ -182,12 +199,20 @@ export function MatrizTab({ stores }: Props) {
     () => activeStores.map((store) => store.code).join('|'),
     [activeStores],
   )
+  const storeCodes = useMemo(
+    () => (storeCodesKey ? storeCodesKey.split('|').filter(Boolean) : []),
+    [storeCodesKey],
+  )
   const storeData = (sigla: string): StoreMatrixData => ({
     metas: metasByStore[sigla] ?? {},
     checks: checksByStore[sigla] ?? {},
     overrides: resultsByStore[sigla] ?? {},
   })
-  const catalogSigla = activeStores[0]?.code ?? stores[0]?.code ?? ''
+
+  const columns = useMemo(
+    () => mergeKpiCatalog(kpisByStore, storeCodes),
+    [kpisByStore, storeCodes],
+  )
 
   const editableColumns = useMemo(
     () => columns.filter((k) => k.kind !== 'conversao'),
@@ -406,43 +431,63 @@ export function MatrizTab({ stores }: Props) {
   }
 
   useEffect(() => {
-    if (!catalogSigla) {
-      setColumns([])
-      return
+    setKpisByStore({})
+    if (storeCodes.length === 0) return
+
+    const unsubs: Array<() => void> = []
+    for (const code of storeCodes) {
+      unsubs.push(
+        subscribeStoreKpis(code, (kpis) => {
+          setKpisByStore((prev) => ({
+            ...prev,
+            [code]: kpis.filter((kpi) => kpi.ativo !== false),
+          }))
+        }),
+      )
     }
-    return subscribeStoreKpis(catalogSigla, (kpis) => {
-      setColumns(kpis.filter((k) => k.ativo !== false))
-    })
-  }, [catalogSigla])
+    return () => {
+      for (const unsub of unsubs) unsub()
+    }
+  }, [storeCodesKey]) // storeCodes derivado de storeCodesKey
 
   useEffect(() => {
-    if (!catalogSigla || columns.length > 0) return
-    let cancelled = false
-    void (async () => {
-      for (const store of activeStores) {
-        if (store.code === catalogSigla) continue
-        const list = await listStoreKpis(store.code)
-        const active = list.filter((k) => k.ativo !== false)
-        if (active.length > 0 && !cancelled) {
-          setColumns(active)
-          break
+    const ids = new Set(columns.map((kpi) => kpi.id))
+    if (sortKpiId && !ids.has(sortKpiId)) {
+      setSortKpiId('')
+      setSortMetric('az')
+    }
+    setExpanded((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const id of Object.keys(next)) {
+        if (!ids.has(id)) {
+          delete next[id]
+          changed = true
         }
       }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [activeStores, catalogSigla, columns.length])
+      return changed ? next : prev
+    })
+    setBulkExpanded((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const id of Object.keys(next)) {
+        if (!ids.has(id)) {
+          delete next[id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [columns, sortKpiId])
 
   useEffect(() => {
-    const codes = storeCodesKey ? storeCodesKey.split('|').filter(Boolean) : []
     setMetasByStore({})
     setChecksByStore({})
     setResultsByStore({})
-    if (codes.length === 0) return
+    if (storeCodes.length === 0) return
 
     const unsubs: Array<() => void> = []
-    for (const code of codes) {
+    for (const code of storeCodes) {
       unsubs.push(
         subscribeMonthMetasTree(code, monthKey, (metas) => {
           setMetasByStore((prev) => ({ ...prev, [code]: metas }))
