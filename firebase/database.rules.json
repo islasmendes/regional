@@ -43,11 +43,15 @@
         },
         "metas": {
           "$month": {
+            ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
             "$kpiId": {
-              ".validate": "newData.hasChildren(['valor', 'updatedAt', 'updatedBy']) || newData.hasChild('subs')",
+              ".validate": "newData.hasChild('subs') || (newData.hasChild('valor') && newData.hasChild('updatedAt') && newData.hasChild('updatedBy'))",
+              "valor": { ".validate": "newData.isNumber()" },
+              "updatedAt": { ".validate": "newData.isString()" },
+              "updatedBy": { ".validate": "newData.isString()" },
               "subs": {
                 "$subId": {
-                  ".validate": "newData.hasChildren(['valor', 'updatedAt', 'updatedBy'])"
+                  ".validate": "newData.hasChildren(['valor', 'updatedAt', 'updatedBy']) && newData.child('valor').isNumber()"
                 }
               }
             }
@@ -67,7 +71,16 @@
         },
         "results": {
           "$month": {
-            ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))"
+            ".write": "auth != null && (auth.token.email == 'master@regionalaltaperformance.firebaseapp.com' || auth.token.email == ('loja.' + $sigla.toLowerCase() + '@regionalaltaperformance.firebaseapp.com'))",
+            "$kpiId": {
+              ".validate": "newData.hasChild('subs') || (newData.hasChild('valor') && newData.hasChild('updatedAt'))",
+              "valor": { ".validate": "newData.isNumber()" },
+              "subs": {
+                "$subId": {
+                  ".validate": "newData.hasChild('valor') && newData.child('valor').isNumber()"
+                }
+              }
+            }
           }
         }
       }

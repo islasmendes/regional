@@ -1,4 +1,4 @@
-import { get, onValue, ref, set, update, type Unsubscribe } from 'firebase/database'
+import { get, onValue, ref, set, type Unsubscribe } from 'firebase/database'
 import { assertLojaSigla } from '../lib/sigla'
 import { getZonedNow } from '../lib/time'
 import { database } from './config'
@@ -29,6 +29,28 @@ export function subscribeMonthMetas(
   })
 }
 
+function metaEntry(valor: number): MonthMetaEntry {
+  return {
+    valor,
+    updatedAt: nowIso(),
+    updatedBy: 'painel',
+  }
+}
+
+function explainFirebaseWriteError(error: unknown, label: string): Error {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: string }).code ?? '')
+      : ''
+  const message = error instanceof Error ? error.message : String(error)
+  if (code.includes('PERMISSION_DENIED') || /permission_denied/i.test(message)) {
+    return new Error(
+      `${label}: RTDB negou a gravação. Publique as regras atuais de firebase/database.rules.json (paths metas e results).`,
+    )
+  }
+  return error instanceof Error ? error : new Error(`${label}: ${message}`)
+}
+
 export async function saveKpiMonthMeta(params: {
   sigla: string
   monthKey: string
@@ -37,13 +59,17 @@ export async function saveKpiMonthMeta(params: {
 }): Promise<MonthMetaEntry> {
   const sigla = assertLojaSigla(params.sigla)
   if (!Number.isFinite(params.valor)) throw new Error('Meta inválida.')
-  const entry: MonthMetaEntry = {
-    valor: params.valor,
-    updatedAt: nowIso(),
-    updatedBy: 'painel',
+  const path = storeKpiMetaPath(sigla, params.monthKey, params.kpiId)
+  const entry = metaEntry(params.valor)
+  try {
+    // Preserva /subs: lê o nó, grava valor sem apagar filhos.
+    const snap = await get(ref(database, path))
+    const prev = snap.exists() ? (snap.val() as Record<string, unknown>) : {}
+    const { valor: _v, updatedAt: _a, updatedBy: _b, ...rest } = prev
+    await set(ref(database, path), { ...rest, ...entry })
+  } catch (error) {
+    throw explainFirebaseWriteError(error, `Meta ${params.kpiId}`)
   }
-  // update preserva nó /subs do mesmo KPI no mês
-  await update(ref(database, storeKpiMetaPath(sigla, params.monthKey, params.kpiId)), entry)
   return entry
 }
 
@@ -56,12 +82,12 @@ export async function saveSubMonthMeta(params: {
 }): Promise<MonthMetaEntry> {
   const sigla = assertLojaSigla(params.sigla)
   if (!Number.isFinite(params.valor)) throw new Error('Meta inválida.')
-  const entry: MonthMetaEntry = {
-    valor: params.valor,
-    updatedAt: nowIso(),
-    updatedBy: 'painel',
+  const entry = metaEntry(params.valor)
+  try {
+    await set(ref(database, storeSubMetaPath(sigla, params.monthKey, params.kpiId, params.subId)), entry)
+  } catch (error) {
+    throw explainFirebaseWriteError(error, `Meta sub ${params.subId}`)
   }
-  await set(ref(database, storeSubMetaPath(sigla, params.monthKey, params.kpiId, params.subId)), entry)
   return entry
 }
 

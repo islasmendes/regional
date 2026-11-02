@@ -1320,6 +1320,23 @@
   letter-spacing: 0.04em;
 }
 
+.matriz-bulk-cell {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 5.5rem;
+}
+
+.matriz-bulk-field {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #93a4bd;
+}
+
 .matriz-bulk-input {
   width: 100%;
   min-width: 4.5rem;
@@ -1329,6 +1346,9 @@
   color: #e2e8f0;
   padding: 0.4rem 0.5rem;
   font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
 }
 
 .matriz-bulk-input:focus {
@@ -1336,8 +1356,12 @@
   border-color: #14b8a6;
 }
 
-.matriz-bulk-input--sub {
-  margin-top: 0.4rem;
+.matriz-bulk-subcell {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed #243247;
+  display: grid;
+  gap: 0.3rem;
 }
 
 .matriz-editor-head {
