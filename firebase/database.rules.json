@@ -23,6 +23,11 @@
       }
     },
 
+    "contratos": {
+      ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
+      ".write": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'"
+    },
+
     "stores": {
       ".read": "auth != null && auth.token.email == 'master@regionalaltaperformance.firebaseapp.com'",
       "$sigla": {

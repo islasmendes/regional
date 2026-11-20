@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useMasterAuth } from '../auth/MasterAuthContext'
 import { subscribeStores } from '../firebase/stores'
 import type { PainelTabsConfig, StoreMeta } from '../firebase/types'
 import { defaultTabsConfig, subscribeTabsConfig } from '../firebase/uiTabs'
 import { CalculadorasPanel } from '../calculadora/CalculadorasPanel'
 import { AbasTab } from '../painel/tabs/AbasTab'
+
+const ContratosTab = lazy(async () => {
+  const mod = await import('../contratos/ContratosTab')
+  return { default: mod.ContratosTab }
+})
 import { HorariosTab } from '../painel/tabs/HorariosTab'
 import { InicioTab } from '../painel/tabs/InicioTab'
 import { KpisTab } from '../painel/tabs/KpisTab'
@@ -203,6 +208,11 @@ export function PainelPage() {
           {activeTab === 'horarios' && <HorariosTab stores={stores} />}
           {activeTab === 'matriz' && <MatrizTab stores={stores} />}
           {activeTab === 'calculadora' && <CalculadorasPanel />}
+          {activeTab === 'contratos' && (
+            <Suspense fallback={<p className="painel-muted">Carregando contratos…</p>}>
+              <ContratosTab />
+            </Suspense>
+          )}
           {activeTab === 'abas' && (
             <AbasTab key={tabsConfig.updatedAt} config={tabsConfig} />
           )}
