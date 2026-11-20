@@ -86,6 +86,23 @@ export function subscribeForecastHistory(
   })
 }
 
+export function normalizeClosingInput(
+  sigla: string,
+  raw: Partial<StoreClosingInput> | null | undefined,
+): StoreClosingInput {
+  const base = emptyClosing(sigla)
+  if (!raw) return base
+  return {
+    sigla: (raw.sigla ?? sigla).toUpperCase(),
+    metaMensal: typeof raw.metaMensal === 'number' ? raw.metaMensal : null,
+    metaDesafio: typeof raw.metaDesafio === 'number' ? raw.metaDesafio : null,
+    vendasAcumuladas: typeof raw.vendasAcumuladas === 'number' ? raw.vendasAcumuladas : null,
+    faturamentoAcumulado:
+      typeof raw.faturamentoAcumulado === 'number' ? raw.faturamentoAcumulado : null,
+    vf: raw.vf && typeof raw.vf === 'object' ? raw.vf : {},
+  }
+}
+
 export function subscribeClosingMonth(
   month: string,
   callback: (bySigla: Record<string, StoreClosingInput>) => void,
@@ -95,8 +112,12 @@ export function subscribeClosingMonth(
       callback({})
       return
     }
-    const tree = snap.val() as Record<string, StoreClosingInput>
-    callback(tree)
+    const tree = snap.val() as Record<string, Partial<StoreClosingInput>>
+    const normalized: Record<string, StoreClosingInput> = {}
+    for (const [sigla, raw] of Object.entries(tree)) {
+      normalized[sigla.toUpperCase()] = normalizeClosingInput(sigla, raw)
+    }
+    callback(normalized)
   })
 }
 

@@ -576,6 +576,27 @@ describe('Teste 9 — Base vazia e importação inválida', () => {
   })
 })
 
+describe('Regressão — closing.vf ausente', () => {
+  it('não quebra quando vf vem undefined do Firebase', () => {
+    const view = buildStoreClosingView({
+      sigla: 'VCFLN',
+      contracts: [],
+      closing: {
+        sigla: 'VCFLN',
+        metaMensal: 10,
+        metaDesafio: null,
+        vendasAcumuladas: 0,
+        faturamentoAcumulado: 0,
+        // @ts-expect-error — simula payload parcial do RTDB
+        vf: undefined,
+      },
+      todayIso: '2026-11-20',
+    })
+    expect(view.vfHoje).toBe(0)
+    expect(view.conferencia).toBe('OK')
+  })
+})
+
 describe('Extras — CV/EV primeiro nome e alertas', () => {
   it('CV/EV exibe só o primeiro nome', () => {
     const result = replaceActiveBase({
