@@ -33,6 +33,18 @@ npm run dev
 2. Anônimo é opcional e **não** abre dados de loja nas regras
 3. Publique as regras do RTDB (`firebase/database.rules.json`) — republicar após mudanças
 
+## Contratos RSDSU
+
+Aba **Contratos** no painel: importação atômica Excel/CSV, base diária, justificativas com filtros/ordenação estável, histórico de previsões (recorrência) e gestão de fechamento por loja + consolidado regional.
+
+Detalhes: [`docs/CONTRATOS.md`](docs/CONTRATOS.md).
+
+```bash
+npm test   # regras críticas (substituição, ordenação, conferência, V+F, VNF, parcial…)
+```
+
+Após deploy, republicar regras RTDB (`firebase/database.rules.json`) — path novo: `contratos/`.
+
 ## Ordem de evolução
 
 Ver backlog vivo em [`docs/EVOLUCAO.md`](docs/EVOLUCAO.md).  
@@ -42,9 +54,9 @@ Novas features entram numa **única PR de evolução** até o próximo publish n
 2. Painel — senha mestra + criar/excluir/redefinir lojas ✅
 3. Auth do gestor em `/performance` ✅
 4. Sidebar + abas + isolamento por sigla ✅
-5. KPIs por loja ← nesta PR
-6. Config de check + input check-in/out
-7. Matriz + sistema + acuracidade
+5. KPIs / Matriz / Calculadora ✅
+6. Contratos RSDSU ← nesta PR
+7. Config de check + acuracidade
 
 ## Segurança
 

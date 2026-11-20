@@ -42,6 +42,13 @@ export function InicioTab({ stores, onOpenTab }: Props) {
           >
             Calculadora
           </button>
+          <button
+            type="button"
+            className="painel-btn painel-btn--ghost"
+            onClick={() => onOpenTab('contratos')}
+          >
+            Contratos
+          </button>
           <button type="button" className="painel-btn painel-btn--ghost" onClick={() => onOpenTab('abas')}>
             Abas
           </button>

@@ -5,6 +5,7 @@ export type PainelTabId =
   | 'horarios'
   | 'matriz'
   | 'calculadora'
+  | 'contratos'
   | 'abas'
 
 export type PainelTabDef = {
@@ -62,6 +63,13 @@ export const PAINEL_TAB_REGISTRY: readonly PainelTabDef[] = [
     label: 'Calculadora',
     group: 'geral',
     description: 'Meta × real, YoY, p.p. vs crescimento, ritmo e conversão.',
+    defaultEnabled: true,
+  },
+  {
+    id: 'contratos',
+    label: 'Contratos',
+    group: 'geral',
+    description: 'Gestão de contratos em aberto, justificativas e projeção de fechamento RSDSU.',
     defaultEnabled: true,
   },
   {
