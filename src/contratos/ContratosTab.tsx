@@ -33,7 +33,7 @@ import type {
 } from './domain/types'
 import {
   commitImportFromFile,
-  emptyClosing,
+  normalizeClosingInput,
   saveJustification,
   saveStoreClosing,
   subscribeActiveBase,
@@ -121,7 +121,7 @@ export function ContratosTab() {
       buildStoreClosingView({
         sigla,
         contracts: enriched,
-        closing: closingMap[sigla] ?? emptyClosing(sigla),
+        closing: normalizeClosingInput(sigla, closingMap[sigla]),
         todayIso: todayIso(),
       }),
     )
@@ -161,8 +161,8 @@ export function ContratosTab() {
   }
 
   const patchClosing = async (sigla: string, patch: Partial<StoreClosingInput>) => {
-    const current = closingMap[sigla] ?? emptyClosing(sigla)
-    const next = { ...current, ...patch, sigla }
+    const current = normalizeClosingInput(sigla, closingMap[sigla])
+    const next = normalizeClosingInput(sigla, { ...current, ...patch, sigla })
     setClosingMap((prev) => ({ ...prev, [sigla]: next }))
     try {
       await saveStoreClosing({ ...next, monthKey: month })
@@ -589,7 +589,7 @@ export function ContratosTab() {
 
           <div className="ct-grid-stores">
             {storeViews.map((view) => {
-              const closing = closingMap[view.sigla] ?? emptyClosing(view.sigla)
+              const closing = normalizeClosingInput(view.sigla, closingMap[view.sigla])
               const confClass =
                 view.conferencia === 'OK'
                   ? 'ct-badge--ok'

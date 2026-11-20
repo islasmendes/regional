@@ -17,7 +17,8 @@ import type {
   VfCommitments,
 } from './types'
 
-function sumVf(vf: VfCommitments, days: string[]): number {
+function sumVf(vf: VfCommitments | null | undefined, days: string[]): number {
+  if (!vf) return 0
   let total = 0
   for (const d of days) {
     const n = vf[d]
