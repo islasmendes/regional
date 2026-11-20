@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Calculadora · Regional</title>
+    <script>
+      (function () {
+        try {
+          sessionStorage.setItem('regional-redirect', 'calculadora');
+        } catch (e) {}
+        // ?p= sobrevive se sessionStorage falhar — rota pública, sem login.
+        location.replace('/regional/?p=calculadora');
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Abrindo calculadora…</p>
+  </body>
+</html>
